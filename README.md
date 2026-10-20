@@ -100,7 +100,7 @@ node src/cli.js --screen         # exit pool self-test
 node src/cli.js --connect-9router
 ```
 
-A key is written to `keys.txt` **only** after `/v1/chat/completions` answers 200 with content; `accounts.json` keeps the e-mail, the group, the grant and the exit each account used. `--captcha-cmd <cmd>` swaps the built-in solver for an external one (challenge JSON on stdin, answer JSON on stdout).
+A key is written to `keys.txt` **only** after `/v1/chat/completions` answers 200 with content; `accounts.json` keeps the e-mail, the group, the grant and the exit each account used. Captcha: `captcha-solve.py` (shipped next to the CLI) is used when python + opencv are installed — that is the solver this repo's keys were minted with (slider 6/6 and image_click 8/8 live verifies); without python the built-in dependency-free JS solver takes over (slider equivalent, image_click best effort, one new challenge per retry). `--captcha-cmd <cmd>` replaces either one (challenge JSON on stdin, answer JSON on stdout); `--solve-file <challenge.json>` solves one saved challenge offline.
 
 ### 🖱️ The launcher
 
@@ -111,14 +111,15 @@ The launcher asks for the proxy list and the count, remembers them, and runs the
 | Check | Result |
 | --- | --- |
 | `GET /api/v1/settings/public` | **200** — `registration_enabled`, `email_verify_enabled`, `registration_click_captcha_enabled: true`, 198-domain whitelist, no OAuth |
-| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 s, single use, bound to the solving exit); both modes live: slider correlation **r = 0.9992–0.9998**, image_click **4/4** verifies |
+| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 s, single use, bound to the solving exit); live solves: slider **6/6** (correlation r = 0.998–0.9998) and image_click **8/8** with `captcha-solve.py`; the same saved challenges replayed offline show the built-in JS slider at identical offsets |
 | `POST /api/v1/auth/send-verify-code` | **200** — code delivered (a reused temp.tf alias answers `409 EMAIL_EXISTS` and the tool rotates the mailbox) |
 | `POST /api/v1/auth/register` | **200** — `access_token`; the code must be spent within its 15-minute window |
 | `GET /api/v1/auth/me` | **200** — `balance: 10` on every account |
 | `POST /api/v1/keys` | **200** — `sk-…` returned once (group `12:default`; `13:vip` also offered) |
-| `POST /v1/chat/completions` (`minimax-m3`) — for **every** key before it is written | **200** with real content — 10 accounts minted, **10 keys in `keys.txt`** |
-| independent re-check — **every key** in `keys.txt`, one by one, `minimax-m3` chat-200 | **10/10 PASS** (2026-10-21; per-key evidence in `out/keys-verify.json`) |
-| panel-side notes | the image puzzle occasionally answers `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` (a stale/missed challenge) — the tool simply requests a new one; a shared temp.tf alias can already exist on the panel (`EMAIL_EXISTS` → new mailbox) |
+| mint flow — one key per account, written **only** after a chat 200 | 10 accounts via the node rail + 1 account via the shipped CLI itself (45 s end to end, chat-200) |
+| `POST /v1/chat/completions` (`minimax-m3`) | **200** with real content for every key before it was kept, and re-checked one by one |
+| independent re-check of the node-rail keys (serial, fresh exit) | **10/10 PASS** (2026-10-21; per-key evidence in `out/keys-verify.json`) |
+| panel-side notes | the image puzzle occasionally answers `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (a stale or missed challenge) — the tool simply requests a new one; a shared temp.tf alias can already exist on the panel (`EMAIL_EXISTS` → new mailbox) and outlook.com boxes have been seen to never deliver, so the CLI defaults to `--mail-providers hotmail` with three attempts |
 
 ## 🧭 How it works
 
@@ -175,6 +176,7 @@ node src/cli.js --help
 | --- | --- |
 | `keys.txt` | one live-verified key per line — git-ignored |
 | `accounts.json` | e-mail / group / signup balance / exit per account |
+| `captcha-solve.py` | the captcha solver (python + opencv): slider correlation and image-click template IoU |
 | `proxies.txt` | your exits — git-ignored |
 | `out/` | run logs — git-ignored |
 

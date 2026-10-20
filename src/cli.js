@@ -123,15 +123,22 @@ if (has('help') || has('h')) {
 Requests go through the exits in your proxy list when one is provided (--pool or
 the THREEROUTER_PROXIES env). Without a pool the tool connects DIRECTLY.
 
-The panel's own captcha (jigsaw slider / image-click puzzle) is solved by the
-built-in solver — no browser, no third-party service, no dependencies.`);
+The panel's own captcha (jigsaw slider / image-click puzzle) is solved in-process,
+with no browser and no third-party service: captcha-solve.py next to this file is
+used when python + opencv are installed (the configuration that minted the keys in
+this repo), otherwise the built-in dependency-free JS solver takes over - the slider
+path is equivalent, the image-click path is best effort, and each attempt just asks
+for a new challenge. --captcha-cmd overrides both.`);
   process.exit(0);
 }
 
 const COUNT = Math.max(1, parseInt(arg('count', '5'), 10) || 5);
 const CONC = Math.min(2, Math.max(1, parseInt(arg('conc', '1'), 10) || 1));
 const GAP_MS = Math.max(0, parseInt(arg('gap', '1500'), 10) || 0);
-const TRIES = Math.max(1, parseInt(arg('tries', '2'), 10) || 2);
+// A temp.tf alias can already exist on the panel (EMAIL_EXISTS) and outlook boxes
+// have been seen not to deliver at all, so failing an attempt on mail is normal —
+// the default budget is three mailboxes, not one.
+const TRIES = Math.max(1, parseInt(arg('tries', '3'), 10) || 3);
 const TIMEOUT_MS = Math.max(5000, parseInt(arg('timeout', '60000'), 10) || 60000);
 const CODE_TIMEOUT_MS = Math.max(30, parseInt(arg('code-timeout', '240'), 10) || 240) * 1000;
 const MODEL = arg('model', process.env.THREEROUTER_MODEL || 'minimax-m3');
@@ -405,6 +412,11 @@ const FILL_TOL = 14;
 const SAT_MIN = 90;
 const MIN_PEAK = 250;
 const MIN_AREA = 350;
+// The photo behind the shapes has large flat regions of its own that pass the
+// dominant-fill test; a painted shape is at most ~60x60 px. Without the ceiling
+// a 24 000 px background blob wins the "largest blob of this colour" tie-break
+// and the click lands on nothing (measured against the python solver).
+const MAX_AREA = 4000;
 
 /** PNG (8-bit, non-interlaced, colour types 0/2/4/6) → { width, height, rgba }. */
 function decodePng(buf) {
@@ -593,20 +605,28 @@ function humanTrack(dropX, pieceY, steps = 26, duration = 900) {
   return pts;
 }
 
-/** Rasterise one ideal shape into a NORM x NORM 0/1 canvas (bbox-normalised convention). */
-function template(name) {
+/**
+ * Ideal silhouettes, pre-rendered per rotation.
+ *
+ * The mask is resampled exactly ONCE (crop to its bounding box → 64x64); every
+ * candidate orientation comes from rotating the *template's* polygon before
+ * rasterising, then normalising the template the same way. Rotating the mask
+ * instead cost a second resample on shapes that are only 30-50 px wide, and the
+ * star/hexagon calls drifted away from the python solver's (measured live).
+ */
+function renderShape(name) {
   const t = new Uint8Array(NORM * NORM);
   const R = NORM / 2;
-  const poly = (pts) => {
+  const fill = (pts) => {
     for (let y = 0; y < NORM; y++) {
       for (let x = 0; x < NORM; x++) {
-        let inside = false;
+        let inPoly = false;
         for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
           const [xi, yi] = pts[i];
           const [xj, yj] = pts[j];
-          if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+          if (yi > y + 0.5 !== yj > y + 0.5 && x + 0.5 < ((xj - xi) * (y + 0.5 - yi)) / (yj - yi) + xi) inPoly = !inPoly;
         }
-        if (inside) t[y * NORM + x] = 1;
+        if (inPoly) t[y * NORM + x] = 1;
       }
     }
   };
@@ -614,28 +634,21 @@ function template(name) {
   else if (name === 'circle') {
     for (let y = 0; y < NORM; y++)
       for (let x = 0; x < NORM; x++) if (((x - R) / R) ** 2 + ((y - R) / R) ** 2 <= 1) t[y * NORM + x] = 1;
-  } else if (name === 'hexagon') {
-    poly(Array.from({ length: 6 }, (_, i) => [R + R * Math.cos((Math.PI / 3) * i), R + R * Math.sin((Math.PI / 3) * i)]));
-  } else if (name === 'triangle') {
-    poly([
-      [NORM / 2, 0],
-      [0, NORM - 1],
-      [NORM - 1, NORM - 1],
-    ]);
-  } else if (name === 'star') {
-    poly(
+  } else if (name === 'hexagon')
+    fill(Array.from({ length: 6 }, (_, i) => [R + R * Math.cos((Math.PI / 3) * i), R + R * Math.sin((Math.PI / 3) * i)]));
+  else if (name === 'triangle') fill([[NORM / 2, 0], [0, NORM - 1], [NORM - 1, NORM - 1]]);
+  else
+    fill(
       Array.from({ length: 10 }, (_, i) => {
         const r = i % 2 === 0 ? R : R * 0.42;
         const a = -Math.PI / 2 + (Math.PI / 5) * i;
         return [R + r * Math.cos(a), R + r * Math.sin(a)];
       }),
     );
-  }
   return t;
 }
-const TEMPLATES = Object.fromEntries(SHAPES.map((n) => [n, template(n)]));
 
-/** Crop to content and resample to NORM x NORM (nearest) — same as the bbox normalisation the templates assume. */
+/** Crop to content and resample to NORM x NORM (nearest). */
 function normalise(mask, w, h) {
   let x0 = w;
   let y0 = h;
@@ -663,7 +676,9 @@ function normalise(mask, w, h) {
   }
   return out;
 }
+const TEMPLATES = Object.fromEntries(SHAPES.map((n) => [n, renderShape(n)]));
 
+/** Rotate a mask around its centre (nearest sampling) for the angle sweep. */
 function rotate(mask, w, h, deg) {
   const out = new Uint8Array(w * h);
   const rad = (deg * Math.PI) / 180;
@@ -686,8 +701,8 @@ function rotate(mask, w, h, deg) {
 
 function classifyShape(mask, w, h) {
   const scores = {};
-  for (let angle = 0; angle < 360; angle += 15) {
-    const cand = normalise(angle === 0 ? mask : rotate(mask, w, h, angle), w, h);
+  for (let deg = 0; deg < 360; deg += 15) {
+    const cand = normalise(deg === 0 ? mask : rotate(mask, w, h, deg), w, h);
     if (!cand) continue;
     for (const name of SHAPES) {
       const tpl = TEMPLATES[name];
@@ -707,7 +722,6 @@ function classifyShape(mask, w, h) {
   for (const [k, v] of Object.entries(scores)) if (v > best[1]) best = [k, v];
   return best;
 }
-
 function dominantFills(img) {
   const { width, height, rgba } = img;
   const counts = new Map();
@@ -806,19 +820,57 @@ function fillHoles(mask, w, h) {
   return filled;
 }
 
+/** Binary 3x3 close (8-connected dilate then erode) — joins anti-aliased edges. */
+function close3x3(mask, w, h) {
+  const dil = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!mask[y * w + x]) continue;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          dil[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let all = 1;
+      for (let dy = -1; dy <= 1 && all; dy++) {
+        for (let dx = -1; dx <= 1 && all; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (!dil[ny * w + nx]) all = 0;
+        }
+      }
+      out[y * w + x] = all;
+    }
+  }
+  return out;
+}
+
 function shapeBlobs(img) {
   const { width: w, height: h, rgba } = img;
   const out = [];
   for (const peak of dominantFills(img)) {
-    const mask = new Uint8Array(w * h);
+    let mask = new Uint8Array(w * h);
     for (let i = 0; i < w * h; i++) {
       const dr = Math.abs(rgba[i * 4] - peak.rgb[0]);
       const dg = Math.abs(rgba[i * 4 + 1] - peak.rgb[1]);
       const db = Math.abs(rgba[i * 4 + 2] - peak.rgb[2]);
       if (Math.max(dr, dg, db) <= FILL_TOL) mask[i] = 1;
     }
+    // The fills sit on a photo, so edge pixels blend and the raw mask can break
+    // into slivers; a 3x3 close is what the python solver does too, and keeping
+    // the two on the same masks is what makes their answers agree.
+    mask = close3x3(mask, w, h);
     for (const pix of componentsOf(mask, w, h)) {
-      if (pix.length < MIN_AREA) continue;
+      if (pix.length < MIN_AREA || pix.length > MAX_AREA) continue;
       const comp = new Uint8Array(w * h);
       let sx = 0;
       let sy = 0;
@@ -866,7 +918,32 @@ function solveImageClick(data) {
   return { clicks, _blobs: blobs.map((b) => [b.color, b.shape, b.iou, b.area]) };
 }
 
-/** Answer one challenge: external `--captcha-cmd`, else the built-in solver. */
+/**
+ * Captcha solving order:
+ *   1. `--captcha-cmd` when the caller supplied one;
+ *   2. the bundled `captcha-solve.py` when python + opencv are present — it is
+ *      the solver this line was proven with (slider 6/6 and image_click 8/8 live
+ *      verifies), so it is preferred whenever it can run;
+ *   3. the built-in JS solver: the slider path matches the python numbers, the
+ *      image_click path is best effort (measured weaker live), so keep the
+ *      retries (`captchaToken` asks for a new challenge every attempt).
+ */
+let PY_SOLVER = null; // { cmd, args } once probed
+function pythonSolver() {
+  if (PY_SOLVER !== null) return PY_SOLVER;
+  const script = path.join(ROOT, 'captcha-solve.py');
+  PY_SOLVER = false;
+  if (!fs.existsSync(script)) return PY_SOLVER;
+  for (const bin of [process.env.PYTHON, 'python', 'python3'].filter(Boolean)) {
+    const probe = spawnSync(bin, ['-c', 'import cv2, numpy, PIL'], { encoding: 'utf8', timeout: 20000, windowsHide: true });
+    if (!probe.error && probe.status === 0) {
+      PY_SOLVER = { cmd: bin, args: [script] };
+      break;
+    }
+  }
+  return PY_SOLVER;
+}
+
 function solveChallenge(challenge) {
   if (CAPTCHA_CMD) {
     const r = spawnSync(CAPTCHA_CMD, {
@@ -883,11 +960,28 @@ function solveChallenge(challenge) {
       return { ok: false, error: `captcha-cmd output unreadable: ${String(r.stdout || r.stderr).slice(0, 120)}` };
     }
   }
+  const py = pythonSolver();
+  if (py) {
+    const r = spawnSync(py.cmd, py.args, {
+      input: JSON.stringify(challenge),
+      encoding: 'utf8',
+      timeout: 90000,
+      windowsHide: true,
+    });
+    if (!r.error) {
+      try {
+        const ans = JSON.parse(String(r.stdout || '{}').trim());
+        if (ans && ans.ok) return ans;
+      } catch (e) {
+        /* fall through to the built-in solver */
+      }
+    }
+  }
   const mode = challenge.mode;
   try {
     const answer = mode === 'slider' ? solveSlider(challenge.slider || {}) : solveImageClick(challenge.image_click || {});
     if (!answer) return { ok: false, error: `no answer (${mode})` };
-    return { ok: true, mode, ...answer };
+    return { ok: true, mode, solver: 'embedded-js', ...answer };
   } catch (e) {
     return { ok: false, error: `${mode}: ${String(e.message).slice(0, 140)}` };
   }
@@ -1343,7 +1437,10 @@ async function connect9router() {
 // ------------------------------------------------------------------- main
 (async () => {
   if (SOLVE_FILE) {
-    const challenge = JSON.parse(fs.readFileSync(SOLVE_FILE, 'utf8'));
+    // `--solve-file -` reads the challenge JSON from stdin, so this CLI also
+    // works as an external solver for another tool (`--captcha-cmd '… --solve-file -'`).
+    const raw = SOLVE_FILE === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(SOLVE_FILE, 'utf8');
+    const challenge = JSON.parse(raw);
     const c = challenge.data && challenge.data.mode ? challenge.data : challenge;
     const ans = solveChallenge(c);
     console.log(JSON.stringify(ans, null, 1));
