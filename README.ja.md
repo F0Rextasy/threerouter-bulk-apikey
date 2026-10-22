@@ -26,6 +26,7 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-5%20served-412991?style=for-the-badge)](https://threerouter.com)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6?style=for-the-badge)](#-connect-to-omniroute)
 [![X](https://img.shields.io/badge/X-%40bigbullapp-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/bigbullapp)
 
 [🛠 クイックスタート](#-quick-start) · [🎁 無料枠](#-free-tier--how-much-you-get) · [🤖 モデル](#-models--all-5-of-them) · [🧪 API の使い方](#-how-to-use-the-api) · [✅ 検証済み](#-verified-working--every-key-is-tested) · [🧭 仕組み](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [⚙️ オプション](#️-cli-options) · [🛰️ プロキシ](#️-behind-a-proxy) · [🐞 問題報告](#-issues)
@@ -192,6 +193,16 @@ node src/cli.js --connect-9router --9router-base http://localhost:20128 --9route
 
 デフォルト: `--9router-prefix threerouter`、`--9router-base-url https://api.threerouter.com/v1`、`--model minimax-m3`。モデルは `threerouter/<model id>` として提供されます。
 
+## 🔌 OmniRoute への接続
+
+[OmniRoute](https://omniroute.online) はセルフホスト型の OpenAI 互換ルーターです:
+
+```bash
+node src/cli.js --connect-omniroute --omniroute-base http://localhost:20128 --omniroute-password 123456 \
+  --api-key YOUR_KEY
+```
+
+デフォルト: `--omniroute-prefix threerouter`、`--omniroute-base-url https://api.threerouter.com/v1`、`--model minimax-m3`。モデルは `threerouter/<model id>` として提供されます。
 ## 🔑 1 つのキーで得られるもの
 
 | | |

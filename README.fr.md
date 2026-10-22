@@ -26,6 +26,7 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-5%20served-412991?style=for-the-badge)](https://threerouter.com)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6?style=for-the-badge)](#-connect-to-omniroute)
 [![X](https://img.shields.io/badge/X-%40bigbullapp-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/bigbullapp)
 
 [🛠 Démarrage rapide](#-quick-start) · [🎁 Offre gratuite](#-free-tier--how-much-you-get) · [🤖 Modèles](#-models--all-5-of-them) · [🧪 Utiliser l'API](#-how-to-use-the-api) · [✅ Vérifié](#-verified-working--every-key-is-tested) · [🧭 Comment ça marche](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [⚙️ Options](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Problèmes](#-issues)
@@ -192,6 +193,16 @@ node src/cli.js --connect-9router --9router-base http://localhost:20128 --9route
 
 Défauts : `--9router-prefix threerouter`, `--9router-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Les modèles sont servis sous `threerouter/<model id>`.
 
+## 🔌 Se connecter à OmniRoute
+
+[OmniRoute](https://omniroute.online) est un routeur auto-hébergé, compatible OpenAI :
+
+```bash
+node src/cli.js --connect-omniroute --omniroute-base http://localhost:20128 --omniroute-password 123456 \
+  --api-key YOUR_KEY
+```
+
+Défauts : `--omniroute-prefix threerouter`, `--omniroute-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Les modèles sont servis sous `threerouter/<model id>`.
 ## 🔑 Ce qu'une clé vous apporte
 
 | | |
