@@ -100,7 +100,7 @@ node src/cli.js --screen         # exit pool self-test
 node src/cli.js --connect-9router
 ```
 
-Ein Schlüssel wird **nur** dann in `keys.txt` geschrieben, wenn `/v1/chat/completions` mit 200 und Inhalt antwortet; `accounts.json` speichert die E-Mail, die Gruppe, den Grant und den Exit, den jedes Konto verwendet hat. Captcha: `captcha-solve.py` (neben der CLI mitgeliefert) wird verwendet, wenn Python + OpenCV installiert sind — das ist der Solver, mit dem die Schlüssel dieses Repos erzeugt wurden (Slider 6/6 und image_click 8/8 Live-Verifizierungen); ohne Python übernimmt der eingebaute abhängigkeitsfreie JS-Solver (Slider äquivalent, image_click nach bestem Bemühen, eine neue Challenge pro Wiederholung). `--captcha-cmd <cmd>` ersetzt beide (Challenge-JSON auf stdin, Antwort-JSON auf stdout); `--solve-file <challenge.json>` löst eine gespeicherte Challenge offline.
+Ein Schlüssel wird **nur** dann in `keys.txt` geschrieben, wenn `/v1/chat/completions` mit 200 und Inhalt antwortet; `accounts.json` speichert die E-Mail, die Gruppe, den Grant und den Exit, den jedes Konto verwendet hat. Captcha: `captcha-solve.py` (neben der CLI mitgeliefert) wird verwendet, wenn Python + OpenCV installiert sind — das ist der Solver, mit dem die Schlüssel dieses Repos erzeugt wurden (Slider 6/6 und image_click verified-Verifizierungen); ohne Python übernimmt der eingebaute abhängigkeitsfreie JS-Solver (Slider äquivalent, image_click nach bestem Bemühen, eine neue Challenge pro Wiederholung). `--captcha-cmd <cmd>` ersetzt beide (Challenge-JSON auf stdin, Antwort-JSON auf stdout); `--solve-file <challenge.json>` löst eine gespeicherte Challenge offline.
 
 ### 🖱️ Der Launcher
 

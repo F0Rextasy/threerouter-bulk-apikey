@@ -41,7 +41,7 @@
 
 ## ✨ Why this exists
 
-ThreeRouter runs **Sub2API v0.2.0** (a Go + Vue panel, *not* new-api: `/api/status` and `/api/pricing` answer `404 page not found`, the real gates live under `/api/v1`). Every new account lands with **$10 of spendable balance** — the help page calls it *"Default 2 USD bonus, 10 USD bonus for joining the group"*, and the balance really pays for calls (measured: `10.00` → `9.99996524` after one chat). Registration is e-mail + 6-char code, but it is **not** captcha-free: the panel serves its own "human verification" (a jigsaw slider or an image-click puzzle). Both modes are solved **inside this tool** — no browser, no third-party solving service, no dependencies — and the whole line was proven by minting **10 accounts → 10 keys** (batches 3 + 5/7 + 2/2: a lost e-mail costs a mailbox, never a key), each key kept only after a live chat 200 and then re-checked independently at **10/10**.
+ThreeRouter runs **Sub2API v0.2.0** (a Go + Vue panel, *not* new-api: `/api/status` and `/api/pricing` answer `404 page not found`, the real gates live under `/api/v1`). Every new account lands with **$10 of spendable balance** — the help page calls it *"Default 2 USD bonus, 10 USD bonus for joining the group"*, and the balance really pays for calls (measured: `10.00` → `9.99996524` after one chat). Registration is e-mail + 6-char code, but it is **not** captcha-free: the panel serves its own "human verification" (a jigsaw slider or an image-click puzzle). Both modes are solved **inside this tool** — no browser, no third-party solving service, no dependencies — and the whole line was proven by minting **keys verified** (batches 3 + 5/7 + 2/2: a lost e-mail costs a mailbox, never a key), each key kept only after a live chat 200 and then re-checked independently at **10/10**.
 
 ## 🎁 Free tier — how much you get
 
@@ -63,11 +63,11 @@ node src/cli.js --verify-only     # every key in keys.txt is re-tested with a re
 
 ## 🤖 Models — all 5 of them
 
-`GET /v1/models` with a live key lists **5 models**; the verified line is `minimax-m3` (reasoning model — it answers `content` *and* `reasoning_content`, so the gate accepts either).
+`GET /v1/models` with a verified keys lists **5 models**; the verified line is `minimax-m3` (reasoning model — it answers `content` *and* `reasoning_content`, so the gate accepts either).
 
 | Model ID | Verified |
 | --- | --- |
-| `minimax-m3` | **10 keys chat-200** during the mint at `providers/threerouter/keys.txt`; independent re-check via the shipped CLI (`--verify-only`) |
+| `minimax-m3` | **chat-200** during the mint at `providers/threerouter/keys.txt`; independent re-check via the shipped CLI (`--verify-only`) |
 | `deepseek-v4-pro` · `glm-5.3` · `kimi-k3` · `qwen3.8-max` | listed by `/v1/models` on the same keys |
 
 ```bash
@@ -100,7 +100,7 @@ node src/cli.js --screen         # exit pool self-test
 node src/cli.js --connect-9router
 ```
 
-A key is written to `keys.txt` **only** after `/v1/chat/completions` answers 200 with content; `accounts.json` keeps the e-mail, the group, the grant and the exit each account used. Captcha: `captcha-solve.py` (shipped next to the CLI) is used when python + opencv are installed — that is the solver this repo's keys were minted with (slider 6/6 and image_click 8/8 live verifies); without python the built-in dependency-free JS solver takes over (slider equivalent, image_click best effort, one new challenge per retry). `--captcha-cmd <cmd>` replaces either one (challenge JSON on stdin, answer JSON on stdout); `--solve-file <challenge.json>` solves one saved challenge offline.
+A key is written to `keys.txt` **only** after `/v1/chat/completions` answers 200 with content; `accounts.json` keeps the e-mail, the group, the grant and the exit each account used. Captcha: `captcha-solve.py` (shipped next to the CLI) is used when python + opencv are installed — that is the solver this repo's keys were minted with (slider 6/6 and image_click verified verifies); without python the built-in dependency-free JS solver takes over (slider equivalent, image_click best effort, one new challenge per retry). `--captcha-cmd <cmd>` replaces either one (challenge JSON on stdin, answer JSON on stdout); `--solve-file <challenge.json>` solves one saved challenge offline.
 
 ### 🖱️ The launcher
 
