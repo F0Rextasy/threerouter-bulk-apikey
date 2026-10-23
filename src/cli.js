@@ -580,15 +580,16 @@ async function verifyOnly() {
       const ms = Date.now() - t0;
       const mark = `${pad(i + 1)}/${pad(keys.length)}`;
       if (g.ok) live++;
-      else dead.push(keys[i]);
+      else if ([401, 402, 403].includes(Number(g.status))) dead.push({ key: keys[i], why: g.status });
       console.log(`  ${g.ok ? '✔' : '✘'} ${mark} ${keys[i].slice(0, 14)}… chat=${g.status} ${ms}ms ${g.ok ? '' : g.sample}`);
     } catch (e) {
-      dead.push(keys[i]);
-      console.log(`  ✘ ${pad(i + 1)}/${pad(keys.length)} ${keys[i].slice(0, 14)}… ${Date.now() - t0}ms ${String(e.message).slice(0, 90)}`);
+      console.log(`  ✘ ${pad(i + 1)}/${pad(keys.length)} ${keys[i].slice(0, 14)}… ${Date.now() - t0}ms ${String(e.message).slice(0, 90)} (transport — key kept)`);
     }
   }
   if (dead.length) {
-    fs.appendFileSync(path.join(ROOT, 'keys-dead.txt'), dead.map((k) => `${k}\n`).join(''));
+    const deadFile = path.join(ROOT, 'keys-dead.txt');
+    const seen = fs.existsSync(deadFile) ? fs.readFileSync(deadFile, 'utf8') : '';
+    for (const d of dead) if (!seen.includes(d.key)) fs.appendFileSync(deadFile, `${d.key}\t${d.why}\t${new Date().toISOString()}\n`);
     console.log(`  ${dead.length} dead key(s) written to keys-dead.txt`);
   }
   console.log(`verify: ${live}/${keys.length} keys live`);
