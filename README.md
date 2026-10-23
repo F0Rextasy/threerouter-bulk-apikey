@@ -97,7 +97,7 @@ node src/cli.js --count N      # mint N keys — the panel's slider/image captch
 node src/cli.js --dry          # print the resolved plan: writes nothing, sends nothing
 ```
 
-`--auto` is the default and needs nothing installed beyond Node: `src/solver.js` holds the captcha engine (slider correlation + image-click template IoU), and it shells out to the bundled `captcha-solve.py` for the modes it cannot do natively when python + opencv are present — no browser, no CDP, no third-party solving service. Proxies stay optional: a `proxies.txt` next to the CLI is used automatically, otherwise the tool goes direct. `--no-auto` disables the embedded solver; the advanced escape hatches (`--captcha-cmd`, `--solve-file`) are for operators who already own a solver — see `ADVANCED.md`.
+`--auto` is the default and needs only Node — plus, optionally, python3 with `opencv-python`/`pillow`/`numpy` for the two panel modes: `src/solver.js` holds the captcha engine (slider correlation + image-click template IoU), and it shells out to the bundled `captcha-solve.py` for the modes it cannot do natively when python + opencv are present — no browser, no CDP, no third-party solving service. Proxies stay optional: a `proxies.txt` next to the CLI is used automatically, otherwise the tool goes direct. `--no-auto` disables the embedded solver; the advanced escape hatches (`--captcha-cmd`, `--solve-file`) are for operators who already own a solver — see `ADVANCED.md`.
 
 > ⚠️ **Terms & account risk.** Automating a provider can violate its Terms of Service and get accounts or IPs banned. You run this on accounts you own, from your own machine, at your own risk; the tool only drives the site's own sign-up page and never bypasses a paid gate. Read the provider's ToS before a large campaign.
 
@@ -105,6 +105,7 @@ node src/cli.js --dry          # print the resolved plan: writes nothing, sends 
 
 ```bash
 cd threerouter-bulk-apikey
+python3 -m pip install opencv-python pillow numpy   # optional: enables captcha-solve.py (slider + image_click)
 printf 'socks5://host:port\n' > proxies.txt   # optional — without it the tool runs direct
 node src/cli.js --count 5        # mint (slider/image captcha solved in-process)
 node src/cli.js --verify-only    # re-check every key in keys.txt
