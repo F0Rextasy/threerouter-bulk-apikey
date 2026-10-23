@@ -28,7 +28,7 @@
 [![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6?style=for-the-badge)](#-connect-to-omniroute)
 [![X](https://img.shields.io/badge/X-%40bigbullapp-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/bigbullapp)
 
-[🛠 Quick start](#-quick-start) · [🎁 Free tier](#-free-tier--how-much-you-get) · [🤖 Models](#-models--all-5-of-them) · [🧪 Use the API](#-how-to-use-the-api) · [✅ Verified](#-verified-working--every-key-is-tested) · [🧭 How it works](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [⚙️ Options](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Issues](#-issues)
+[🛠 Quick start](#-quick-start) · [🎁 Free tier](#-free-tier--how-much-you-get) · [🤖 Models](#-models--all-5-of-them) · [🧪 Use the API](#-how-to-use-the-api) · [✅ Verified](#-verified-working--every-key-is-tested) · [🧭 How it works](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Options](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Issues](#-issues)
 
 </div>
 
@@ -42,7 +42,7 @@
 
 ## ✨ Why this exists
 
-ThreeRouter runs **Sub2API v0.2.0** (a Go + Vue panel, *not* new-api: `/api/status` and `/api/pricing` answer `404 page not found`, the real gates live under `/api/v1`). Every new account lands with **$10 of spendable balance** — the help page calls it *"Default 2 USD bonus, 10 USD bonus for joining the group"*, and the balance really pays for calls (measured: `10.00` → `9.99996524` after one chat). Registration is e-mail + 6-char code, but it is **not** captcha-free: the panel serves its own "human verification" (a jigsaw slider or an image-click puzzle). Both modes are solved **inside this tool** — no browser, no third-party solving service, no dependencies — and the whole line was proven by minting **keys verified** (batches 3 + 5/7 + 2/2: a lost e-mail costs a mailbox, never a key), each key kept only after a live chat 200 and then re-checked independently at **10/10**.
+ThreeRouter runs **Sub2API v0.2.0** (a Go + Vue panel, *not* new-api: `/api/status` and `/api/pricing` answer `404 page not found`, the real gates live under `/api/v1`). Every new account lands with **$10 of spendable balance** — the help page calls it *"Default 2 USD bonus, 10 USD bonus for joining the group"*, and the balance really pays for calls (measured: `10.00` → `9.99996524` after one chat). Registration is e-mail + 6-char code, but it is **not** captcha-free: the panel serves its own "human verification" (a jigsaw slider or an image-click puzzle). Both modes are solved **inside this tool** — no browser, no third-party solving service, no dependencies — and the whole line was proven by minting **each account minted its own key** (batches 3 + 5/7 + 2/2: a lost e-mail costs a mailbox, never a key), each key kept only after a live chat 200 and then re-checked independently at **10/10**.
 
 ## 🎁 Free tier — how much you get
 
@@ -64,11 +64,11 @@ node src/cli.js --verify-only     # every key in keys.txt is re-tested with a re
 
 ## 🤖 Models — all 5 of them
 
-`GET /v1/models` with a verified keys lists **5 models**; the verified line is `minimax-m3` (reasoning model — it answers `content` *and* `reasoning_content`, so the gate accepts either).
+`GET /v1/models` with a live key lists **5 models**; the verified line is `minimax-m3` (reasoning model — it answers `content` *and* `reasoning_content`, so the gate accepts either).
 
 | Model ID | Verified |
 | --- | --- |
-| `minimax-m3` | **chat-200** during the mint at `providers/threerouter/keys.txt`; independent re-check via the shipped CLI (`--verify-only`) |
+| `minimax-m3` | **every key, chat-200** during the mint at `providers/threerouter/keys.txt`; independent re-check via the shipped CLI (`--verify-only`) |
 | `deepseek-v4-pro` · `glm-5.3` · `kimi-k3` · `qwen3.8-max` | listed by `/v1/models` on the same keys |
 
 ```bash
@@ -101,18 +101,13 @@ node src/cli.js --screen         # exit pool self-test
 node src/cli.js --connect-9router
 ```
 
-A key is written to `keys.txt` **only** after `/v1/chat/completions` answers 200 with content; `accounts.json` keeps the e-mail, the group, the grant and the exit each account used. Captcha: `captcha-solve.py` (shipped next to the CLI) is used when python + opencv are installed — that is the solver this repo's keys were minted with (slider 6/6 and image_click verified verifies); without python the built-in dependency-free JS solver takes over (slider equivalent, image_click best effort, one new challenge per retry). `--captcha-cmd <cmd>` replaces either one (challenge JSON on stdin, answer JSON on stdout); `--solve-file <challenge.json>` solves one saved challenge offline.
+A key is written to `keys.txt` **only** after `/v1/chat/completions` answers 200 with content; `accounts.json` keeps the e-mail, the group, the grant and the exit each account used. Captcha: `captcha-solve.py` (shipped next to the CLI) is used when python + opencv are installed — that is the solver this repo's keys were minted with (slider 6/6 and image_click live verifies); without python the built-in dependency-free JS solver takes over (slider equivalent, image_click best effort, one new challenge per retry). `--captcha-cmd <cmd>` replaces either one (challenge JSON on stdin, answer JSON on stdout); `--solve-file <challenge.json>` solves one saved challenge offline.
 
 ### 🖱️ The launcher
 
 The launcher asks for the proxy list and the count, remembers them, and runs the CLI — mint, verify, screen exits, settings, help, Connect to 9Router.
 
 ## ✅ Verified working — every key is tested
-
-> **Quality gates.** Every key here passed a live `chat-200` before it was written to `keys.txt`
-> (dead keys are never shipped). Router combos follow the same rule at the model level: an entry is
-> added **only if the model answers `chat-200` and can call tools** — a model without tool support,
-> a dead key or a dead provider is dropped instead of added. Works with **9Router and OmniRoute**.
 
 | Check | Result |
 | --- | --- |
@@ -124,8 +119,14 @@ The launcher asks for the proxy list and the count, remembers them, and runs the
 | `POST /api/v1/keys` | **200** — `sk-…` returned once (group `12:default`; `13:vip` also offered) |
 | mint flow — one key per account, written **only** after a chat 200 | 10 accounts via the node rail + 1 account via the shipped CLI itself (45 s end to end, chat-200) |
 | `POST /v1/chat/completions` (`minimax-m3`) | **200** with real content for every key before it was kept, and re-checked one by one |
-| independent re-check of the node-rail keys (serial, fresh exit) | **10/10 PASS** (2026-10-21; per-key evidence in `out/keys-verify.json`) |
+| independent re-check of the node-rail keys (serial, fresh exit) | **all pass** (2026-10-21; per-key evidence in `out/keys-verify.json`) |
 | panel-side notes | the image puzzle occasionally answers `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (a stale or missed challenge) — the tool simply requests a new one; a shared temp.tf alias can already exist on the panel (`EMAIL_EXISTS` → new mailbox) and outlook.com boxes have been seen to never deliver, so the CLI defaults to `--mail-providers hotmail` with three attempts |
+
+> **Quality gates.** Every key here passed a live `chat-200` before it was written to `keys.txt`
+> (dead keys are never shipped). Router combos follow the same rule at the model level: an entry is
+> added **only if the model answers `chat-200` and can call tools** — a model without tool support,
+> a dead key or a dead provider is dropped instead of added. Re-run the verify step any time;
+> failures are reported, never hidden.
 
 ## 🧭 How it works
 
@@ -207,6 +208,7 @@ node src/cli.js --connect-omniroute --omniroute-base http://localhost:20128 --om
 ```
 
 Defaults: `--omniroute-prefix threerouter`, `--omniroute-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Models are served as `threerouter/<model id>`.
+
 ## 🔑 What one key gets you
 
 | | |

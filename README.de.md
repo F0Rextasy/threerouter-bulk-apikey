@@ -19,7 +19,7 @@
 
 # threerouter-bulk-apikey
 
-**ThreeRouter-Konten in großen Mengen erstellen mit automatisch generierten API-Schlüsseln — OpenAI-kompatible Inferenz + 9Router-Connector.**
+**ThreeRouter-Konten im Bulk anlegen mit automatisch generierten API-Schlüsseln — OpenAI-kompatible Inferenz + 9Router-Connector.**
 
 [![Node](https://img.shields.io/badge/Node-%E2%89%A518-3DA639?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-blue?style=for-the-badge)](#)
@@ -29,7 +29,7 @@
 [![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6?style=for-the-badge)](#-connect-to-omniroute)
 [![X](https://img.shields.io/badge/X-%40bigbullapp-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/bigbullapp)
 
-[🛠 Schnellstart](#-quick-start) · [🎁 Kostenlose Stufe](#-free-tier--how-much-you-get) · [🤖 Modelle](#-models--all-5-of-them) · [🧪 Die API verwenden](#-how-to-use-the-api) · [✅ Verifiziert](#-verified-working--every-key-is-tested) · [🧭 So funktioniert es](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [⚙️ Optionen](#️-cli-options) · [🛰️ Hinter einem Proxy](#️-behind-a-proxy) · [🐞 Probleme](#-issues)
+[🛠 Schnellstart](#-quick-start) · [🎁 Free-Tier](#-free-tier--how-much-you-get) · [🤖 Modelle](#-models--all-5-of-them) · [🧪 API nutzen](#-how-to-use-the-api) · [✅ Verifiziert](#-verified-working--every-key-is-tested) · [🧭 So funktioniert es](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Optionen](#️-cli-options) · [🛰️ Proxys](#️-behind-a-proxy) · [🐞 Issues](#-issues)
 
 </div>
 
@@ -43,21 +43,21 @@
 
 ## ✨ Warum es das gibt
 
-ThreeRouter betreibt **Sub2API v0.2.0** (ein Go + Vue-Panel, *nicht* new-api: `/api/status` und `/api/pricing` antworten mit `404 page not found`, die echten Zugänge liegen unter `/api/v1`). Jedes neue Konto startet mit **10 $ ausgabefähigem Guthaben** — die Hilfeseite nennt es *„Standardmäßig 2 USD Bonus, 10 USD Bonus für den Beitritt zur Gruppe"*, und das Guthaben bezahlt tatsächlich Aufrufe (gemessen: `10.00` → `9.99996524` nach einem Chat). Die Registrierung erfolgt per E-Mail + 6-stelligem Code, ist aber **nicht** captcha-frei: Das Panel liefert seine eigene „Menschliche Verifizierung" aus (ein Jigsaw-Slider oder ein Bild-Klick-Puzzle). Beide Modi werden **innerhalb dieses Tools** gelöst — kein Browser, kein Drittanbieter-Lösungsdienst, keine Abhängigkeiten — und die gesamte Kette wurde bewiesen, indem **10 Konten → 10 Schlüssel** erzeugt wurden (Chargen 3 + 5/7 + 2/2: eine verlorene E-Mail kostet ein Postfach, niemals einen Schlüssel), wobei jeder Schlüssel erst nach einem Live-Chat-200 behalten und dann unabhängig mit **10/10** erneut geprüft wurde.
+ThreeRouter betreibt **Sub2API v0.2.0** (ein Go-+-Vue-Panel, *nicht* new-api: `/api/status` und `/api/pricing` antworten mit `404 page not found`, die echten Gates liegen unter `/api/v1`). Jedes neue Konto startet mit **10 $ verfügbarem Guthaben** — die Hilfeseite nennt es *„Default 2 USD bonus, 10 USD bonus for joining the group"*, und das Guthaben bezahlt tatsächlich Calls (gemessen: `10.00` → `9.99996524` nach einem Chat). Die Registrierung läuft über E-Mail + 6-stelligen Code, ist aber **nicht** captcha-frei: Das Panel liefert seine eigene „Human Verification" (ein Jigsaw-Slider oder ein Bild-Klick-Puzzle). Beide Modi werden **in diesem Tool** gelöst — kein Browser, kein Drittanbieter-Lösungsdienst, keine Abhängigkeiten — und die ganze Kette wurde bewiesen, indem **jedes Konto seinen eigenen Schlüssel erzeugte** (Batches 3 + 5/7 + 2/2: eine verlorene E-Mail kostet ein Postfach, niemals einen Schlüssel), wobei jeder Schlüssel erst nach einem Live-Chat-200 behalten und anschließend unabhängig mit **10/10** erneut geprüft wurde.
 
-## 🎁 Kostenlose Stufe — wie viel du bekommst
+## 🎁 Free-Tier — wie viel du bekommst
 
 | Was | Wert |
 | --- | --- |
-| Anmeldebonus | **10 $ Guthaben** (`GET /api/v1/auth/me` → `balance: 10`; ausgabefähig — ein Chat verschob es auf `9.99996524`) |
+| Anmeldebonus | **10 $ Guthaben** (`GET /api/v1/auth/me` → `balance: 10`; verfügbar — ein Chat bewegte es auf `9.99996524`) |
 | Captcha | das **eigene** Widget des Panels: `mode: slider` (Jigsaw) oder `mode: image_click` (N Formen in Farbreihenfolge anklicken) — offline von diesem Tool gelöst |
 | E-Mail-Gate | **6-stelliger alphanumerischer** Code (z. B. `74AGMV`) + eine Whitelist mit 198 Domains (`gmail.com`, `hotmail.com`, `outlook.com`, `live.com`, `icloud.com`, `proton.me` …) |
-| Weitere Gates | **kein** Telefon, **kein** OAuth (GitHub/Google/WeChat/LinuxDo/OIDC alle `false`), **kein** Einladungscode |
+| Weitere Gates | **kein** Telefon, **kein** OAuth (GitHub/Google/WeChat/LinuxDo/OIDC alle `false`), **kein** Invite-Code |
 | Katalog | 5 Modell-IDs auf der verifizierten Schlüssel-Linie (`minimax-m3`, `deepseek-v4-pro`, `glm-5.3`, `kimi-k3`, `qwen3.8-max`) |
-| Preisgestaltung | guthabenbasiert (1 CNY = 1 USD beim Aufladen, Gruppen-`rate_multiplier`); es gibt **keine $0-Modellklasse** und keinen `/api/pricing`-Endpunkt — der Anmeldebonus *ist* die kostenlose Stufe |
+| Preisgestaltung | guthabenbasiert (1 CNY = 1 USD beim Aufladen, Gruppen-`rate_multiplier`); es gibt **keine $0-Modellklasse** und keinen `/api/pricing`-Endpunkt — der Anmeldebonus *ist* der Free-Tier |
 | Die skalierende Einheit | **ein Konto = ein Schlüssel** |
 
-> 💡 Die kostenlose Stufe wird von ThreeRouter festgelegt und kann sich ändern. Prüfe die Live-Zahlen auf [threerouter.com](https://threerouter.com) — und lass das Gate des Tools selbst entscheiden:
+> 💡 Der Free-Tier wird von ThreeRouter festgelegt und kann sich ändern. Prüfe die Live-Zahlen auf [threerouter.com](https://threerouter.com) — und lass das Gate des Tools selbst entscheiden:
 
 ```bash
 node src/cli.js --verify-only     # every key in keys.txt is re-tested with a real chat call
@@ -65,12 +65,12 @@ node src/cli.js --verify-only     # every key in keys.txt is re-tested with a re
 
 ## 🤖 Modelle — alle 5
 
-`GET /v1/models` mit einem Live-Schlüssel listet **5 Modelle** auf; die verifizierte Linie ist `minimax-m3` (Reasoning-Modell — es antwortet mit `content` *und* `reasoning_content`, daher akzeptiert das Gate beides).
+`GET /v1/models` mit einem Live-Schlüssel listet **5 Modelle**; die verifizierte Linie ist `minimax-m3` (Reasoning-Modell — es antwortet mit `content` *und* `reasoning_content`, daher akzeptiert das Gate beides).
 
 | Modell-ID | Verifiziert |
 | --- | --- |
-| `minimax-m3` | **10 Schlüssel Chat-200** während der Erzeugung unter `providers/threerouter/keys.txt`; unabhängige erneute Prüfung über die mitgelieferte CLI (`--verify-only`) |
-| `deepseek-v4-pro` · `glm-5.3` · `kimi-k3` · `qwen3.8-max` | von `/v1/models` mit denselben Schlüsseln aufgelistet |
+| `minimax-m3` | **jeder Schlüssel, Chat-200** während des Mints unter `providers/threerouter/keys.txt`; unabhängige Nachprüfung über die mitgelieferte CLI (`--verify-only`) |
+| `deepseek-v4-pro` · `glm-5.3` · `kimi-k3` · `qwen3.8-max` | von `/v1/models` mit denselben Schlüsseln gelistet |
 
 ```bash
 curl https://api.threerouter.com/v1/chat/completions \
@@ -78,7 +78,7 @@ curl https://api.threerouter.com/v1/chat/completions \
   -d '{"model":"minimax-m3","messages":[{"role":"user","content":"hi"}],"max_tokens":32}'
 ```
 
-## 🧪 Die API verwenden
+## 🧪 So nutzt du die API
 
 Basis-URL **`https://api.threerouter.com/v1`** — OpenAI-kompatibel (die Konsole selbst bewirbt sie als `api_base_url`).
 
@@ -102,11 +102,11 @@ node src/cli.js --screen         # exit pool self-test
 node src/cli.js --connect-9router
 ```
 
-Ein Schlüssel wird **nur** dann in `keys.txt` geschrieben, wenn `/v1/chat/completions` mit 200 und Inhalt antwortet; `accounts.json` speichert die E-Mail, die Gruppe, den Grant und den Exit, den jedes Konto verwendet hat. Captcha: `captcha-solve.py` (neben der CLI mitgeliefert) wird verwendet, wenn Python + OpenCV installiert sind — das ist der Solver, mit dem die Schlüssel dieses Repos erzeugt wurden (Slider 6/6 und image_click verified-Verifizierungen); ohne Python übernimmt der eingebaute abhängigkeitsfreie JS-Solver (Slider äquivalent, image_click nach bestem Bemühen, eine neue Challenge pro Wiederholung). `--captcha-cmd <cmd>` ersetzt beide (Challenge-JSON auf stdin, Antwort-JSON auf stdout); `--solve-file <challenge.json>` löst eine gespeicherte Challenge offline.
+Ein Schlüssel wird **nur** dann in `keys.txt` geschrieben, wenn `/v1/chat/completions` mit 200 und Inhalt antwortet; `accounts.json` speichert die E-Mail, die Gruppe, den Grant und den Exit, den jedes Konto verwendet hat. Captcha: `captcha-solve.py` (liegt neben der CLI) wird verwendet, wenn Python + OpenCV installiert sind — das ist der Solver, mit dem die Schlüssel dieses Repos erzeugt wurden (Slider 6/6 und image_click Live-Verifies); ohne Python übernimmt der eingebaute, abhängigkeitsfreie JS-Solver (Slider äquivalent, image_click nach bestem Bemühen, eine neue Challenge pro Wiederholung). `--captcha-cmd <cmd>` ersetzt beide (Challenge-JSON auf stdin, Antwort-JSON auf stdout); `--solve-file <challenge.json>` löst eine gespeicherte Challenge offline.
 
 ### 🖱️ Der Launcher
 
-Der Launcher fragt nach der Proxy-Liste und der Anzahl, merkt sie sich und führt die CLI aus — Erzeugen, Verifizieren, Exits prüfen, Einstellungen, Hilfe, Mit 9Router verbinden.
+Der Launcher fragt nach der Proxy-Liste und der Anzahl, merkt sie sich und führt die CLI aus — Mint, Verify, Exit-Screen, Einstellungen, Hilfe, Connect to 9Router.
 
 ## ✅ Verifiziert funktionierend — jeder Schlüssel wird getestet
 
@@ -117,11 +117,18 @@ Der Launcher fragt nach der Proxy-Liste und der Anzahl, merkt sie sich und führ
 | `POST /api/v1/auth/send-verify-code` | **200** — Code zugestellt (ein wiederverwendeter temp.tf-Alias antwortet mit `409 EMAIL_EXISTS` und das Tool rotiert das Postfach) |
 | `POST /api/v1/auth/register` | **200** — `access_token`; der Code muss innerhalb seines 15-Minuten-Fensters verbraucht werden |
 | `GET /api/v1/auth/me` | **200** — `balance: 10` bei jedem Konto |
-| `POST /api/v1/keys` | **200** — `sk-…` einmalig zurückgegeben (Gruppe `12:default`; `13:vip` wird ebenfalls angeboten) |
-| Mint-Ablauf — ein Schlüssel pro Konto, **nur** nach einem Chat-200 geschrieben | 10 Konten über die Node-Schiene + 1 Konto über die mitgelieferte CLI selbst (45 s von Anfang bis Ende, Chat-200) |
+| `POST /api/v1/keys` | **200** — `sk-…` einmalig zurückgegeben (Gruppe `12:default`; `13:vip` ebenfalls angeboten) |
+| Mint-Flow — ein Schlüssel pro Konto, geschrieben **nur** nach einem Chat-200 | 10 Konten über die Node-Rail + 1 Konto über die mitgelieferte CLI selbst (45 s Ende-zu-Ende, Chat-200) |
 | `POST /v1/chat/completions` (`minimax-m3`) | **200** mit echtem Inhalt für jeden Schlüssel, bevor er behalten wurde, und einzeln erneut geprüft |
-| unabhängige erneute Prüfung der Node-Schienen-Schlüssel (seriell, frischer Exit) | **10/10 PASS** (2026-10-21; Nachweise pro Schlüssel in `out/keys-verify.json`) |
-| Hinweise von Panel-Seite | das Bild-Puzzle antwortet gelegentlich mit `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (eine veraltete oder verpasste Challenge) — das Tool fordert einfach eine neue an; ein geteilter temp.tf-Alias kann bereits auf dem Panel existieren (`EMAIL_EXISTS` → neues Postfach) und outlook.com-Postfächer haben nachweislich nie zugestellt, daher verwendet die CLI standardmäßig `--mail-providers hotmail` mit drei Versuchen |
+| unabhängige Nachprüfung der Node-Rail-Schlüssel (seriell, frischer Exit) | **alle bestanden** (2026-10-21; Nachweise pro Schlüssel in `out/keys-verify.json`) |
+| Hinweise von Panel-Seite | das Bild-Puzzle antwortet gelegentlich mit `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (eine veraltete oder verpasste Challenge) — das Tool fordert einfach eine neue an; ein geteilter temp.tf-Alias kann auf dem Panel bereits existieren (`EMAIL_EXISTS` → neues Postfach) und outlook.com-Postfächer haben nachweislich nie zugestellt, daher verwendet die CLI standardmäßig `--mail-providers hotmail` mit drei Versuchen |
+
+> **Qualitätsgates.** Jeder Schlüssel hier hat ein Live-`chat-200` bestanden, bevor er in `keys.txt`
+> geschrieben wurde (tote Schlüssel werden nie ausgeliefert). Router-Kombinationen folgen derselben Regel
+> auf Modellebene: Ein Eintrag wird **nur hinzugefügt, wenn das Modell `chat-200` antwortet und Tools
+> aufrufen kann** — ein Modell ohne Tool-Unterstützung, ein toter Schlüssel oder ein toter Provider wird
+> verworfen statt hinzugefügt. Führe den Verify-Schritt jederzeit erneut aus; Fehler werden gemeldet,
+> niemals versteckt.
 
 ## 🧭 So funktioniert es
 
@@ -137,12 +144,12 @@ inbox (one address per account)                                  a fresh address
 | Schritt | Aufruf | Hinweise |
 | --- | --- | --- |
 | Gates | `GET /api/v1/settings/public` | Register-/E-Mail-/Captcha-Flags, E-Mail-Whitelist |
-| Captcha | `POST /api/v1/auth/captcha/challenge` → lösen → `POST /api/v1/auth/captcha/verify` | `captcha_token`, einmalig verwendbar, **derselbe Exit** wie die Aufrufe, die ihn verbrauchen |
-| Postfach | temp.tf-Alias (oder Emailnator `@gmail.com`) | nur die vom Panel zugelassenen Domains |
+| Captcha | `POST /api/v1/auth/captcha/challenge` → lösen → `POST /api/v1/auth/captcha/verify` | `captcha_token`, einmalig verwendbar, **derselbe Exit** wie die Calls, die ihn verbrauchen |
+| Postfach | temp.tf-Alias (oder Emailnator `@gmail.com`) | nur die vom Panel gewhitelisteten Domains |
 | Code senden | `POST /api/v1/auth/send-verify-code` | `{email, click_captcha_token}` |
-| Code | das Postfach abfragen | 6-stellig alphanumerisch, 15-Minuten-Fenster |
+| Code | das Postfach pollen | 6-stellig alphanumerisch, 15-Minuten-Fenster |
 | Registrieren | `POST /api/v1/auth/register` | `{email, password, verify_code, click_captcha_token}` → `access_token` |
-| Gruppen | `GET /api/v1/groups/available` | dort ist der Bonus ausgabefähig |
+| Gruppen | `GET /api/v1/groups/available` | dort ist der Bonus verfügbar |
 | Schlüssel | `POST /api/v1/keys` | `{name, group_id}` → `sk-…` |
 | Nachweis | `POST <relay>/chat/completions` | 200 mit Inhalt (oder `reasoning_content`) = der Schlüssel ist live |
 
@@ -162,15 +169,15 @@ node src/cli.js --help
 | Env | Standard | Bedeutung |
 | --- | --- | --- |
 | `THREEROUTER_PROXIES` | `proxies.txt` | Exit-Pool, eine Zeile pro Proxy |
-| `THREEROUTER_MODEL` | `minimax-m3` | Modell für die Live-Verifizierung |
+| `THREEROUTER_MODEL` | `minimax-m3` | Modell für die Live-Verifikation |
 
 ## 🛰️ Hinter einem Proxy
 
-**Optional — bei Skalierung empfohlen (Limits pro IP, Sperren).** Das Tool funktioniert auch ohne Proxy.
+**Optional — bei Skalierung empfohlen (Limits pro IP, Bans).** Das Tool funktioniert auch ohne Proxy.
 
-- **Mit einem Pool:** Übergib `--pool <file>` (oder setze `THREEROUTER_PROXIES`) und jede Anfrage läuft über einen Exit aus dieser Liste. Ein Captcha-Token wird an den Exit ausgestellt, der das Puzzle gelöst hat, daher läuft das gesamte Konto (beide Lösungen und der Register-Aufruf) über **einen festgelegten Exit** — stirbt dieser Exit, schlägt der Versuch fehl und der nächste Exit wird verwendet, niemals ein direkter Fallback.
-- **Ohne einen Pool:** Die CLI gibt `running WITHOUT a proxy (direct)` aus und verbindet direkt. An Registrierung, Schlüsselerzeugung oder Verifizierung ändert sich nichts — nur daran, wo die Pakete das System verlassen.
-- `--screen` testet die Exits, die du hast (oder die direkte Route) gegen `https://threerouter.com/api/v1/settings/public` vor einem echten Lauf.
+- **Mit einem Pool:** Übergib `--pool <file>` (oder setze `THREEROUTER_PROXIES`) und jede Anfrage läuft über einen Exit aus dieser Liste. Ein Captcha-Token wird an den Exit ausgegeben, der das Puzzle gelöst hat, daher läuft das gesamte Konto (beide Lösungen und der Register-Aufruf) über **einen festgelegten Exit** — stirbt dieser Exit, schlägt der Versuch fehl und der nächste Exit wird verwendet, niemals ein direkter Fallback.
+- **Ohne Pool:** Die CLI gibt `running WITHOUT a proxy (direct)` aus und verbindet direkt. An Registrierung, Schlüsselerzeugung oder Verifikation ändert sich nichts — nur daran, wo die Pakete rausgehen.
+- `--screen` testet die vorhandenen Exits (oder die direkte Route) gegen `https://threerouter.com/api/v1/settings/public` vor einem echten Lauf.
 
 ## 📄 Dateien
 
@@ -178,9 +185,9 @@ node src/cli.js --help
 | --- | --- |
 | `keys.txt` | ein live-verifizierter Schlüssel pro Zeile — von Git ignoriert |
 | `accounts.json` | E-Mail / Gruppe / Anmeldeguthaben / Exit pro Konto |
-| `captcha-solve.py` | der Captcha-Solver (Python + OpenCV): Slider-Korrelation und image-click-Template-IoU |
+| `captcha-solve.py` | der Captcha-Solver (Python + OpenCV): Slider-Korrelation und Image-Click-Template-IoU |
 | `proxies.txt` | deine Exits — von Git ignoriert |
-| `out/` | Lauf-Logs — von Git ignoriert |
+| `out/` | Run-Logs — von Git ignoriert |
 
 ## 🔌 Mit 9Router verbinden
 
@@ -203,17 +210,18 @@ node src/cli.js --connect-omniroute --omniroute-base http://localhost:20128 --om
 ```
 
 Standardwerte: `--omniroute-prefix threerouter`, `--omniroute-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Modelle werden als `threerouter/<model id>` bereitgestellt.
+
 ## 🔑 Was ein Schlüssel dir bringt
 
 | | |
 | --- | --- |
 | 🏢 Anbieter | **ThreeRouter** — [threerouter.com](https://threerouter.com) |
-| 🎁 Was der Anbieter gibt | **10 $ Guthaben** bei der Anmeldung (keine $0-Modellklasse — der Bonus ist die kostenlose Stufe) |
+| 🎁 Was der Anbieter gibt | **10 $ Guthaben** bei der Anmeldung (keine $0-Modellklasse — der Bonus ist der Free-Tier) |
 | 🔑 Was ein Schlüssel dir bringt | ein Schlüssel auf seinem eigenen Konto, chat-verifiziert auf `minimax-m3` |
 | 🌐 API-Form | OpenAI-kompatibel: `POST https://api.threerouter.com/v1/chat/completions` |
 | 🔒 Deine Daten | nur `threerouter.com` / `api.threerouter.com` und dein Postfach-Backend werden kontaktiert |
 
-## 🐞 Probleme
+## 🐞 Issues
 
 Wenn ThreeRouter seine Registrierungs-Gates ändert (Captcha-Modus, Whitelist, Bonus) oder seinen Relay-Host, stoppt das Tool dort und sagt es. **[Öffne ein Issue](../../issues)** mit dem Befehl und der exakten Ausgabe.
 
