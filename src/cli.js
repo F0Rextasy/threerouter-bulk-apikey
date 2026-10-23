@@ -12,7 +12,7 @@
  *
  * Registration is gated by the panel's own "human verification" (a jigsaw
  * slider or an image-click puzzle) plus a **6-char alphanumeric e-mail code**.
- * Both puzzle modes are solved inside this file — no browser, no service:
+ * Both puzzle modes are solved inside src/solver.js — no browser, no service:
  *
  *   slider      the notch in the background is the piece content times a
  *               constant, so the offset is plain template correlation
@@ -55,6 +55,9 @@
  *   --tries N        exits tried per account before giving up              [2]
  *   --timeout MS     per-request timeout                                [60000]
  *   --code-timeout S seconds to wait for the e-mail code                   [240]
+ *   --auto           solve the captcha with src/solver.js (default, no browser)
+ *   --no-auto        disable the embedded solver (then --captcha-cmd is needed)
+ *   --dry            resolve the plan, print it and exit (no write, no request)
  *   --captcha-cmd C  solve with an external command instead of the built-in
  *                    solver: the challenge JSON goes to its stdin, the answer
  *                    ({drop_x,trajectory} or {clicks}) comes back on stdout
@@ -77,20 +80,31 @@ const http = require('http');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
-
+const {
+  solveCaptcha,
+  solveChallenge,
+  decodePng,
+  solveSlider,
+  solveImageClick,
+  parseProxy,
+  exitJson,
+  setDefaultTimeout,
+  pythonSolver,
+  UA,
+  BASE,
+  API,
+} = require('./solver.js');
 const ROOT = path.basename(__dirname) === 'src' ? path.resolve(__dirname, '..') : __dirname;
 const KEYS_FILE = path.join(ROOT, 'keys.txt');
 const ACCOUNTS_FILE = path.join(ROOT, 'accounts.json');
 const OUT_DIR = path.join(ROOT, 'out');
 
-const BASE = 'https://threerouter.com';
-const API = `${BASE}/api/v1`;
 const DEFAULT_RELAY = 'https://api.threerouter.com/v1';
 const TEMPTF = 'https://temp.tf';
 const EMAILNATOR = 'https://www.emailnator.com';
 const MODEL_LIST = ['minimax-m3', 'deepseek-v4-pro', 'glm-5.3', 'kimi-k3', 'qwen3.8-max'];
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
+// BASE / API / UA and the whole captcha engine live in src/solver.js: the panel
+// requests, the pool transport and the `--auto` solve all go through it.
 
 // ------------------------------------------------------------------- options
 const argv = process.argv.slice(2);
@@ -106,10 +120,14 @@ const has = (name) => argv.includes(`--${name}`) || argv.includes(`-${name}`);
 if (has('help') || has('h')) {
   console.log(`threerouter-bulk-apikey — mint ThreeRouter accounts, one key each, verified by a live chat call.
 
+  One command:
+    node src/cli.js --count N            mint N keys (the panel's captcha is solved automatically)
+
   node src/cli.js --count 5            mint (a key is kept only after a chat 200)
   node src/cli.js --verify-only        re-check every key in keys.txt
   node src/cli.js --screen             test your proxy list against ThreeRouter
   node src/cli.js --connect-9router    register the provider + one key on a local 9Router
+  node src/cli.js --dry                print the resolved plan, write nothing, send nothing
   node src/cli.js --help
 
   --count N        accounts to mint                                     [5]
@@ -118,17 +136,20 @@ if (has('help') || has('h')) {
   --group <id>     group for the key (default: the panel's first)       [-]
   --mail <rail>    temptf | emailnator                              [temptf]
   --pool <file>    proxy list, one exit per line (env THREEROUTER_PROXIES) [optional]
-  --captcha-cmd C  external captcha solver (challenge JSON on stdin)
+  --auto           solve the captcha with src/solver.js (default; no browser, no CDP)
+  --no-auto        disable the embedded solver (then --captcha-cmd is required)
+  --dry            resolve the plan and exit (no write, no request)
+  --captcha-cmd C  advanced: external captcha solver (challenge JSON on stdin)
 
 Requests go through the exits in your proxy list when one is provided (--pool or
 the THREEROUTER_PROXIES env). Without a pool the tool connects DIRECTLY.
 
-The panel's own captcha (jigsaw slider / image-click puzzle) is solved in-process,
-with no browser and no third-party service: captcha-solve.py next to this file is
-used when python + opencv are installed (the configuration that minted the keys in
-this repo), otherwise the built-in dependency-free JS solver takes over - the slider
-path is equivalent, the image-click path is best effort, and each attempt just asks
-for a new challenge. --captcha-cmd overrides both.`);
+The panel's own captcha (jigsaw slider / image-click puzzle) is solved in-process
+by src/solver.js, with no browser and no third-party service: captcha-solve.py next
+to this file is used when python + opencv are installed (the configuration that
+minted the keys in this repo), otherwise the built-in dependency-free JS solver
+takes over - the slider path is equivalent, the image-click path is best effort,
+and each attempt just asks for a new challenge. --captcha-cmd overrides both.`);
   process.exit(0);
 }
 
@@ -147,212 +168,38 @@ const MAIL_RAIL = arg('mail', 'temptf');
 const MAIL_PROVIDERS = arg('mail-providers', 'hotmail,outlook').split(',').map((s) => s.trim()).filter(Boolean);
 const CAPTCHA_CMD = arg('captcha-cmd', '');
 const SOLVE_FILE = arg('solve-file', '');
+const AUTO = !has('no-auto'); // the embedded solver is the default path (one command)
+const DRY = has('dry'); // resolve the plan, print it, write nothing, send nothing
 const TAG = arg('tag', 'tr');
 const VERIFY_ONLY = has('verify-only');
 const SCREEN = has('screen');
 const CONNECT_9ROUTER = has('connect-9router');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-fs.mkdirSync(OUT_DIR, { recursive: true });
+if (!DRY) fs.mkdirSync(OUT_DIR, { recursive: true });
 const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}]`, ...a);
 const pad = (s) => String(s).padStart(2, '0');
 
-// ------------------------------------------------------------------- proxy
-function parseProxy(line) {
-  const s = String(line || '').trim();
-  if (!s || s.startsWith('#')) return null;
-  let m = s.match(/^(https?|socks5h?|socks4):\/\/(?:([^:@/]+):([^@/]+)@)?([^:/]+):(\d+)/i);
-  if (!m) m = s.match(/^(?:([^:@/]+):([^@/]+)@)?([^:/]+):(\d+)$/);
-  if (!m) return null;
-  if (m.length === 6) {
-    const raw = m[1].toLowerCase();
-    if (raw === 'socks4') return null;
-    return {
-      protocol: raw.startsWith('socks') ? 'socks5' : 'http',
-      host: m[4],
-      port: Number(m[5]),
-      auth: m[2] ? `${m[2]}:${m[3]}` : null,
-      line: s,
-    };
-  }
-  return { protocol: 'http', host: m[3], port: Number(m[4]), auth: m[1] ? `${m[1]}:${m[2]}` : null, line: s };
+/** `--dry`: the resolved plan, then exit 0. The pool file is only read, never written. */
+function printPlan() {
+  const poolArg = arg('pool', process.env.THREEROUTER_PROXIES || 'proxies.txt');
+  const poolFile = fs.existsSync(path.resolve(poolArg)) ? path.resolve(poolArg) : path.resolve(ROOT, poolArg);
+  const exits = fs.existsSync(poolFile)
+    ? fs.readFileSync(poolFile, 'utf8').split(/\r?\n/).map(parseProxy).filter(Boolean).length
+    : 0;
+  const py = pythonSolver();
+  console.log('threerouter dry run — nothing is written and no request is sent.');
+  console.log(`  count    ${COUNT} key(s), ${CONC} in flight, ${GAP_MS} ms between batches`);
+  console.log(`  pool     ${exits ? `${exits} exit(s) from ${poolFile}` : `direct (no usable exit in ${poolFile})`}`);
+  console.log(`  model    ${MODEL}   mail ${MAIL_RAIL}`);
+  console.log(`  solver   ${AUTO ? `embedded src/solver.js (--auto, default) — slider + image_click, python helper ${py ? `present (${py.cmd})` : 'absent'}` : 'off (--no-auto)'}`);
+  console.log('  browser  none — the solve is in-process, no Chrome and nothing to download');
+}
+if (DRY) {
+  printPlan();
+  process.exit(0);
 }
 
-/** A raw socket straight to host:port — the direct-mode twin of connectThrough. */
-function directConnect(host, port, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const sock = net.connect({ host, port });
-    const t = setTimeout(() => {
-      sock.destroy();
-      reject(new Error(`connect timeout (${host}:${port})`));
-    }, timeoutMs);
-    sock.once('connect', () => {
-      clearTimeout(t);
-      resolve(sock);
-    });
-    sock.once('error', (e) => {
-      clearTimeout(t);
-      reject(e);
-    });
-  });
-}
-
-function connectThrough(proxy, host, port, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const sock = net.connect({ host: proxy.host, port: proxy.port });
-    const t = setTimeout(() => {
-      sock.destroy();
-      reject(new Error(`proxy timeout (${proxy.host}:${proxy.port})`));
-    }, timeoutMs);
-    const done = (err, s) => {
-      clearTimeout(t);
-      if (err) {
-        try {
-          sock.destroy();
-        } catch (e) {
-          /* already gone */
-        }
-        reject(err);
-      } else resolve(s);
-    };
-    sock.once('error', (e) => done(new Error(`proxy connect failed: ${e.message}`)));
-    sock.once('connect', () => {
-      if (proxy.protocol === 'socks5') {
-        sock.write(proxy.auth ? Buffer.from([5, 2, 0, 2]) : Buffer.from([5, 1, 0]));
-        let stage = 0;
-        let buf = Buffer.alloc(0);
-        const sendConnect = () => {
-          const hb = Buffer.from(host);
-          sock.write(Buffer.concat([Buffer.from([5, 1, 0, 3, hb.length]), hb, Buffer.from([port >> 8, port & 0xff])]));
-        };
-        const onData = (d) => {
-          try {
-            buf = Buffer.concat([buf, d]);
-            for (;;) {
-              if (stage === 0) {
-                if (buf.length < 2) return;
-                const v = buf;
-                buf = buf.slice(2);
-                if (v[0] !== 5) return done(new Error('SOCKS5 bad version'));
-                if (v[1] === 2) {
-                  if (!proxy.auth) return done(new Error('SOCKS5 auth required'));
-                  const [u, p] = proxy.auth.split(':');
-                  sock.write(
-                    Buffer.concat([Buffer.from([1, u.length]), Buffer.from(u), Buffer.from([p.length]), Buffer.from(p)]),
-                  );
-                  stage = 1;
-                  continue;
-                }
-                if (v[1] !== 0) return done(new Error('SOCKS5 no acceptable method'));
-                stage = 2;
-                sendConnect();
-                continue;
-              }
-              if (stage === 1) {
-                if (buf.length < 2) return;
-                const v = buf;
-                buf = buf.slice(2);
-                if (v[1] !== 0) return done(new Error('SOCKS5 auth failed'));
-                stage = 2;
-                sendConnect();
-                continue;
-              }
-              if (stage === 2) {
-                if (buf.length < 5) return;
-                const atyp = buf[3];
-                const need = 4 + (atyp === 1 ? 4 : atyp === 3 ? 1 + buf[4] : 16) + 2;
-                if (buf.length < need) return;
-                const rep = buf[1];
-                buf = buf.slice(need);
-                if (rep !== 0) return done(new Error(`SOCKS5 connect failed (code ${rep})`));
-                sock.off('data', onData);
-                return done(null, sock);
-              }
-            }
-          } catch (e) {
-            done(e);
-          }
-        };
-        sock.on('data', onData);
-        return;
-      }
-      const auth = proxy.auth ? `Proxy-Authorization: Basic ${Buffer.from(proxy.auth).toString('base64')}\r\n` : '';
-      sock.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\n${auth}\r\n`);
-      let buf = '';
-      const onData = (d) => {
-        buf += d;
-        if (!buf.includes('\r\n\r\n')) return;
-        sock.off('data', onData);
-        if (!/^HTTP\/\d(\.\d)? 200/.test(buf)) return done(new Error(`proxy CONNECT refused: ${buf.split('\r\n')[0]}`));
-        done(null, sock);
-      };
-      sock.on('data', onData);
-    });
-  });
-}
-
-/** One HTTPS request through one exit (or directly). Returns { status, headers, body }. */
-async function exitFetch(proxy, url, { method = 'GET', headers = {}, body = null, timeoutMs = TIMEOUT_MS } = {}) {
-  const u = new URL(url);
-  const raw = proxy
-    ? await connectThrough(proxy, u.hostname, u.port || 443, timeoutMs)
-    : await directConnect(u.hostname, u.port || 443, timeoutMs);
-  const sock = tls.connect({ socket: raw, servername: u.hostname });
-  await new Promise((res, rej) => {
-    sock.once('secureConnect', res);
-    sock.once('error', rej);
-  });
-  const chunks = [];
-  let resolve;
-  let reject;
-  const p = new Promise((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  const req = http.request({
-    method,
-    path: u.pathname + u.search,
-    createConnection: () => sock,
-    headers: { host: u.host, 'user-agent': UA, accept: '*/*', ...headers },
-  });
-  const t = setTimeout(() => {
-    try {
-      req.destroy();
-    } catch (e) {
-      /* gone */
-    }
-    reject(new Error('request timeout'));
-  }, timeoutMs);
-  req.on('response', (res) => {
-    res.on('data', (c) => chunks.push(c));
-    res.on('end', () => {
-      clearTimeout(t);
-      resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') });
-    });
-  });
-  req.on('error', (e) => {
-    clearTimeout(t);
-    reject(e);
-  });
-  if (body != null) {
-    req.write(Buffer.isBuffer(body) ? body : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body)));
-  }
-  req.end();
-  return p;
-}
-
-async function exitJson(proxy, url, opts = {}) {
-  const headers = { ...(opts.headers || {}) };
-  if (opts.body != null && !Buffer.isBuffer(opts.body)) headers['content-type'] = 'application/json';
-  const r = await exitFetch(proxy, url, { ...opts, headers });
-  let json = null;
-  try {
-    json = JSON.parse(r.body);
-  } catch (e) {
-    /* not json */
-  }
-  return { status: r.status, json, text: r.body };
-}
 
 // ------------------------------------------------------------------- pool
 let PROXIES = [null];
@@ -395,635 +242,22 @@ async function screen(exits) {
   return ok;
 }
 
-// ================================================================== captcha
-// Everything below is pure JS: PNG decode (zlib + defilter), a correlation
-// solver for the slider and a template-IoU classifier for the image puzzle.
-
-const PALETTE = {
-  red: [0xef, 0x44, 0x44],
-  blue: [0x3b, 0x82, 0xf6],
-  green: [0x22, 0xc5, 0x5e],
-  yellow: [0xea, 0xb3, 0x08],
-  purple: [0xa8, 0x55, 0xf7],
-};
-const SHAPES = ['circle', 'square', 'hexagon', 'triangle', 'star'];
-const NORM = 64;
-const FILL_TOL = 14;
-const SAT_MIN = 90;
-const MIN_PEAK = 250;
-const MIN_AREA = 350;
-// The photo behind the shapes has large flat regions of its own that pass the
-// dominant-fill test; a painted shape is at most ~60x60 px. Without the ceiling
-// a 24 000 px background blob wins the "largest blob of this colour" tie-break
-// and the click lands on nothing (measured against the python solver).
-const MAX_AREA = 4000;
-
-/** PNG (8-bit, non-interlaced, colour types 0/2/4/6) → { width, height, rgba }. */
-function decodePng(buf) {
-  if (!buf || buf.length < 8 || buf.readUInt32BE(0) !== 0x89504e47) throw new Error('not a PNG');
-  let off = 8;
-  let hdr = null;
-  const idat = [];
-  while (off + 8 <= buf.length) {
-    const len = buf.readUInt32BE(off);
-    const type = buf.toString('ascii', off + 4, off + 8);
-    const data = buf.slice(off + 8, off + 8 + len);
-    if (type === 'IHDR') {
-      hdr = {
-        width: data.readUInt32BE(0),
-        height: data.readUInt32BE(4),
-        depth: data[8],
-        colorType: data[9],
-        interlace: data[12],
-      };
-    } else if (type === 'IDAT') idat.push(data);
-    else if (type === 'IEND') break;
-    off += 12 + len;
-  }
-  if (!hdr) throw new Error('PNG without IHDR');
-  if (hdr.depth !== 8) throw new Error(`PNG bit depth ${hdr.depth} unsupported`);
-  if (hdr.interlace) throw new Error('interlaced PNG unsupported');
-  const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[hdr.colorType];
-  if (!channels) throw new Error(`PNG colour type ${hdr.colorType} unsupported`);
-  const raw = zlib.inflateSync(Buffer.concat(idat));
-  const stride = hdr.width * channels;
-  const out = Buffer.alloc(stride * hdr.height);
-  let prev = Buffer.alloc(stride);
-  let p = 0;
-  for (let y = 0; y < hdr.height; y++) {
-    const filter = raw[p++];
-    const line = Buffer.from(raw.slice(p, p + stride));
-    p += stride;
-    for (let i = 0; i < stride; i++) {
-      const a = i >= channels ? line[i - channels] : 0;
-      const b = prev[i];
-      const c = i >= channels ? prev[i - channels] : 0;
-      let v = line[i];
-      if (filter === 1) v = (v + a) & 0xff;
-      else if (filter === 2) v = (v + b) & 0xff;
-      else if (filter === 3) v = (v + ((a + b) >> 1)) & 0xff;
-      else if (filter === 4) {
-        const pa = Math.abs(b - c);
-        const pb = Math.abs(a - c);
-        const pc = Math.abs(a + b - 2 * c);
-        const pred = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
-        v = (v + pred) & 0xff;
-      }
-      line[i] = v;
-    }
-    line.copy(out, y * stride);
-    prev = line;
-  }
-  const rgba = new Uint8Array(hdr.width * hdr.height * 4);
-  for (let i = 0, n = hdr.width * hdr.height; i < n; i++) {
-    const s = i * channels;
-    const d = i * 4;
-    if (channels === 1 || channels === 2) {
-      rgba[d] = rgba[d + 1] = rgba[d + 2] = out[s];
-      rgba[d + 3] = channels === 2 ? out[s + 1] : 255;
-    } else {
-      rgba[d] = out[s];
-      rgba[d + 1] = out[s + 1];
-      rgba[d + 2] = out[s + 2];
-      rgba[d + 3] = channels === 4 ? out[s + 3] : 255;
-    }
-  }
-  return { width: hdr.width, height: hdr.height, rgba };
-}
-
-function hueOf([r, g, b]) {
-  const R = r / 255;
-  const G = g / 255;
-  const B = b / 255;
-  const max = Math.max(R, G, B);
-  const min = Math.min(R, G, B);
-  if (max === min) return 0;
-  const d = max - min;
-  let h;
-  if (max === R) h = ((G - B) / d) % 6;
-  else if (max === G) h = (B - R) / d + 2;
-  else h = (R - G) / d + 4;
-  h *= 60;
-  if (h < 0) h += 360;
-  return h / 2; // OpenCV scale 0..180
-}
-const satOf = ([r, g, b]) => {
-  const max = Math.max(r, g, b);
-  return max === 0 ? 0 : ((max - Math.min(r, g, b)) / max) * 255;
-};
-const hueDist = (a, b) => {
-  const d = Math.abs(a - b);
-  return Math.min(d, 180 - d);
-};
-const HUE = Object.fromEntries(Object.entries(PALETTE).map(([n, c]) => [n, hueOf(c)]));
-
-function colorOfRgb(rgb) {
-  const h = hueOf(rgb);
-  let best = '?';
-  let score = 1e9;
-  for (const [name, hh] of Object.entries(HUE)) {
-    const d = hueDist(h, hh);
-    if (d < score) {
-      score = d;
-      best = name;
-    }
-  }
-  return { color: best, dist: score };
-}
-
-function solveSlider(data) {
-  const bg = decodePng(Buffer.from(data.bg_image, 'base64'));
-  const piece = decodePng(Buffer.from(data.piece_image, 'base64'));
-  const y = Number(data.piece_y);
-  const pw = piece.width;
-  const ph = piece.height;
-  let mask = [];
-  for (let i = 0; i < pw * ph; i++) if (piece.rgba[i * 4 + 3] === 255) mask.push(i);
-  if (!mask.length) for (let i = 0; i < pw * ph; i++) if (piece.rgba[i * 4 + 3] > 0) mask.push(i);
-  if (!mask.length) return null;
-  // Pearson correlation of the piece content against the strip at piece_y. Both
-  // the reference and the candidate are pooled over the three channels, so the
-  // reference variance must be pooled the same way: subtracting per-channel
-  // means instead drops the between-channel spread and inflates r (measured
-  // 2.27 against a true 0.9992 on a live challenge).
-  const N = mask.length * 3;
-  let refSum = 0;
-  let refSum2 = 0;
-  for (let k = 0; k < mask.length; k++) {
-    const i = mask[k];
-    for (let ch = 0; ch < 3; ch++) {
-      const a = piece.rgba[i * 4 + ch];
-      refSum += a;
-      refSum2 += a * a;
-    }
-  }
-  const refVar = refSum2 / N - (refSum / N) ** 2;
-  if (refVar <= 0) return null;
-  let best = { r: -2, x: 0 };
-  for (let x = 0; x + pw <= bg.width; x++) {
-    if (y + ph > bg.height) break;
-    let sRC = 0;
-    let sC = 0;
-    let sC2 = 0;
-    for (let k = 0; k < mask.length; k++) {
-      const i = mask[k];
-      const px = x + (i % pw);
-      const py = y + Math.floor(i / pw);
-      const o = (py * bg.width + px) * 4;
-      for (let ch = 0; ch < 3; ch++) {
-        const a = piece.rgba[i * 4 + ch];
-        const b = bg.rgba[o + ch];
-        sRC += a * b;
-        sC += b;
-        sC2 += b * b;
-      }
-    }
-    const varC = sC2 / N - (sC / N) ** 2;
-    if (varC <= 0) continue;
-    const cov = sRC / N - (refSum / N) * (sC / N);
-    const r = cov / Math.sqrt(refVar * varC);
-    if (r > best.r) best = { r, x };
-  }
-  if (best.r < 0.9) return null;
-  return { drop_x: best.x, trajectory: humanTrack(best.x, y), _r: Number(best.r.toFixed(5)) };
-}
-
-function humanTrack(dropX, pieceY, steps = 26, duration = 900) {
-  const pts = [];
-  for (let i = 0; i <= steps; i++) {
-    const f = i / steps;
-    let x = dropX * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, f * 0.94)));
-    if (f > 0.88 && f < 0.965) x = dropX * (1 + 0.012 * Math.sin(((f - 0.88) / 0.085) * Math.PI));
-    x += Math.sin(i * 1.7) * 0.6;
-    pts.push({
-      x: Number(Math.max(0, Math.min(x, dropX + 3)).toFixed(2)),
-      y: Number((pieceY + Math.sin(i * 0.9) * 0.5).toFixed(2)),
-      t: Math.round(f * duration),
-    });
-  }
-  pts[pts.length - 1] = { x: dropX, y: pieceY, t: duration };
-  return pts;
-}
 
 /**
- * Ideal silhouettes, pre-rendered per rotation.
- *
- * The mask is resampled exactly ONCE (crop to its bounding box → 64x64); every
- * candidate orientation comes from rotating the *template's* polygon before
- * rasterising, then normalising the template the same way. Rotating the mask
- * instead cost a second resample on shapes that are only 30-50 px wide, and the
- * star/hexagon calls drifted away from the python solver's (measured live).
+ * A solved captcha token for the pinned exit (single use, 900 s). It must be the
+ * exit the caller spends it on — the panel binds the token to the solving exit.
+ * src/solver.js owns the challenge → solve → verify round trip.
  */
-function renderShape(name) {
-  const t = new Uint8Array(NORM * NORM);
-  const R = NORM / 2;
-  const fill = (pts) => {
-    for (let y = 0; y < NORM; y++) {
-      for (let x = 0; x < NORM; x++) {
-        let inPoly = false;
-        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-          const [xi, yi] = pts[i];
-          const [xj, yj] = pts[j];
-          if (yi > y + 0.5 !== yj > y + 0.5 && x + 0.5 < ((xj - xi) * (y + 0.5 - yi)) / (yj - yi) + xi) inPoly = !inPoly;
-        }
-        if (inPoly) t[y * NORM + x] = 1;
-      }
-    }
-  };
-  if (name === 'square') t.fill(1);
-  else if (name === 'circle') {
-    for (let y = 0; y < NORM; y++)
-      for (let x = 0; x < NORM; x++) if (((x - R) / R) ** 2 + ((y - R) / R) ** 2 <= 1) t[y * NORM + x] = 1;
-  } else if (name === 'hexagon')
-    fill(Array.from({ length: 6 }, (_, i) => [R + R * Math.cos((Math.PI / 3) * i), R + R * Math.sin((Math.PI / 3) * i)]));
-  else if (name === 'triangle') fill([[NORM / 2, 0], [0, NORM - 1], [NORM - 1, NORM - 1]]);
-  else
-    fill(
-      Array.from({ length: 10 }, (_, i) => {
-        const r = i % 2 === 0 ? R : R * 0.42;
-        const a = -Math.PI / 2 + (Math.PI / 5) * i;
-        return [R + r * Math.cos(a), R + r * Math.sin(a)];
-      }),
-    );
-  return t;
-}
-
-/** Crop to content and resample to NORM x NORM (nearest). */
-function normalise(mask, w, h) {
-  let x0 = w;
-  let y0 = h;
-  let x1 = -1;
-  let y1 = -1;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (!mask[y * w + x]) continue;
-      if (x < x0) x0 = x;
-      if (x > x1) x1 = x;
-      if (y < y0) y0 = y;
-      if (y > y1) y1 = y;
-    }
-  }
-  if (x1 < x0 || y1 < y0) return null;
-  const sw = x1 - x0 + 1;
-  const sh = y1 - y0 + 1;
-  const out = new Uint8Array(NORM * NORM);
-  for (let y = 0; y < NORM; y++) {
-    const sy = y0 + Math.min(sh - 1, Math.floor((y * sh) / NORM));
-    for (let x = 0; x < NORM; x++) {
-      const sx = x0 + Math.min(sw - 1, Math.floor((x * sw) / NORM));
-      out[y * NORM + x] = mask[sy * w + sx];
-    }
-  }
-  return out;
-}
-const TEMPLATES = Object.fromEntries(SHAPES.map((n) => [n, renderShape(n)]));
-
-/** Rotate a mask around its centre (nearest sampling) for the angle sweep. */
-function rotate(mask, w, h, deg) {
-  const out = new Uint8Array(w * h);
-  const rad = (deg * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  const cx = (w - 1) / 2;
-  const cy = (h - 1) / 2;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const dx = x - cx;
-      const dy = y - cy;
-      const sx = Math.round(cx + dx * cos + dy * sin);
-      const sy = Math.round(cy + -dx * sin + dy * cos);
-      if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
-      out[y * w + x] = mask[sy * w + sx];
-    }
-  }
-  return out;
-}
-
-function classifyShape(mask, w, h) {
-  const scores = {};
-  for (let deg = 0; deg < 360; deg += 15) {
-    const cand = normalise(deg === 0 ? mask : rotate(mask, w, h, deg), w, h);
-    if (!cand) continue;
-    for (const name of SHAPES) {
-      const tpl = TEMPLATES[name];
-      let inter = 0;
-      let union = 0;
-      for (let i = 0; i < NORM * NORM; i++) {
-        const a = cand[i];
-        const b = tpl[i];
-        if (a && b) inter++;
-        if (a || b) union++;
-      }
-      const iou = union ? inter / union : 0;
-      if (!(name in scores) || iou > scores[name]) scores[name] = iou;
-    }
-  }
-  let best = ['?', 0];
-  for (const [k, v] of Object.entries(scores)) if (v > best[1]) best = [k, v];
-  return best;
-}
-function dominantFills(img) {
-  const { width, height, rgba } = img;
-  const counts = new Map();
-  for (let i = 0; i < width * height; i++) {
-    const key = (rgba[i * 4] << 16) | (rgba[i * 4 + 1] << 8) | rgba[i * 4 + 2];
-    counts.set(key, (counts.get(key) || 0) + 1);
-  }
-  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 400);
-  const out = [];
-  for (const [key, count] of top) {
-    if (count < MIN_PEAK) break;
-    const rgb = [(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff];
-    if (satOf(rgb) < SAT_MIN) continue;
-    if (out.some((o) => Math.max(...o.rgb.map((v, i) => Math.abs(v - rgb[i]))) <= FILL_TOL)) continue;
-    out.push({ rgb, count });
-    if (out.length >= 12) break;
-  }
-  return out;
-}
-
-function componentsOf(mask, w, h) {
-  const seen = new Uint8Array(w * h);
-  const comps = [];
-  const stack = [];
-  for (let start = 0; start < w * h; start++) {
-    if (!mask[start] || seen[start]) continue;
-    stack.length = 0;
-    stack.push(start);
-    seen[start] = 1;
-    const pix = [];
-    while (stack.length) {
-      const p = stack.pop();
-      pix.push(p);
-      const x = p % w;
-      const y = (p - x) / w;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (!dx && !dy) continue;
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          const n = ny * w + nx;
-          if (mask[n] && !seen[n]) {
-            seen[n] = 1;
-            stack.push(n);
-          }
-        }
-      }
-    }
-    comps.push(pix);
-  }
-  return comps;
-}
-
-/** Fill interior holes: flood the background from the border, everything not reached is a hole. */
-function fillHoles(mask, w, h) {
-  const outside = new Uint8Array(w * h);
-  const stack = [];
-  for (let x = 0; x < w; x++) {
-    for (const y of [0, h - 1]) {
-      const p = y * w + x;
-      if (!mask[p] && !outside[p]) {
-        outside[p] = 1;
-        stack.push(p);
-      }
-    }
-  }
-  for (let y = 0; y < h; y++) {
-    for (const x of [0, w - 1]) {
-      const p = y * w + x;
-      if (!mask[p] && !outside[p]) {
-        outside[p] = 1;
-        stack.push(p);
-      }
-    }
-  }
-  while (stack.length) {
-    const p = stack.pop();
-    const x = p % w;
-    const y = (p - x) / w;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        const n = ny * w + nx;
-        if (!mask[n] && !outside[n]) {
-          outside[n] = 1;
-          stack.push(n);
-        }
-      }
-    }
-  }
-  const filled = Uint8Array.from(mask);
-  for (let i = 0; i < w * h; i++) if (!mask[i] && !outside[i]) filled[i] = 1;
-  return filled;
-}
-
-/** Binary 3x3 close (8-connected dilate then erode) — joins anti-aliased edges. */
-function close3x3(mask, w, h) {
-  const dil = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (!mask[y * w + x]) continue;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          dil[ny * w + nx] = 1;
-        }
-      }
-    }
-  }
-  const out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let all = 1;
-      for (let dy = -1; dy <= 1 && all; dy++) {
-        for (let dx = -1; dx <= 1 && all; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          if (!dil[ny * w + nx]) all = 0;
-        }
-      }
-      out[y * w + x] = all;
-    }
-  }
-  return out;
-}
-
-function shapeBlobs(img) {
-  const { width: w, height: h, rgba } = img;
-  const out = [];
-  for (const peak of dominantFills(img)) {
-    let mask = new Uint8Array(w * h);
-    for (let i = 0; i < w * h; i++) {
-      const dr = Math.abs(rgba[i * 4] - peak.rgb[0]);
-      const dg = Math.abs(rgba[i * 4 + 1] - peak.rgb[1]);
-      const db = Math.abs(rgba[i * 4 + 2] - peak.rgb[2]);
-      if (Math.max(dr, dg, db) <= FILL_TOL) mask[i] = 1;
-    }
-    // The fills sit on a photo, so edge pixels blend and the raw mask can break
-    // into slivers; a 3x3 close is what the python solver does too, and keeping
-    // the two on the same masks is what makes their answers agree.
-    mask = close3x3(mask, w, h);
-    for (const pix of componentsOf(mask, w, h)) {
-      if (pix.length < MIN_AREA || pix.length > MAX_AREA) continue;
-      const comp = new Uint8Array(w * h);
-      let sx = 0;
-      let sy = 0;
-      for (const p of pix) {
-        comp[p] = 1;
-        sx += p % w;
-        sy += Math.floor(p / w);
-      }
-      const filled = fillHoles(comp, w, h);
-      const [shape, iou] = classifyShape(filled, w, h);
-      const { color, dist } = colorOfRgb(peak.rgb);
-      out.push({
-        color,
-        hue_dist: dist,
-        shape,
-        iou: Number(iou.toFixed(4)),
-        area: pix.length,
-        x: sx / pix.length,
-        y: sy / pix.length,
-      });
-    }
-  }
-  return out;
-}
-
-function solveImageClick(data) {
-  const img = decodePng(Buffer.from(data.image, 'base64'));
-  const prompt = data.prompt || [];
-  const blobs = shapeBlobs(img);
-  const clicks = [];
-  const used = new Set();
-  for (const want of prompt) {
-    const color = String(want.color || '').toLowerCase();
-    const shape = String(want.shape || '').toLowerCase();
-    const same = blobs.filter((b) => b.color === color && !used.has(`${Math.round(b.x)},${Math.round(b.y)}`));
-    if (!same.length) return null;
-    let picked = same.filter((b) => b.shape === shape);
-    if (!picked.length) picked = same; // misclassification: take the colour's main blob
-    picked.sort((a, b) => b.area - a.area);
-    const pick = picked[0];
-    used.add(`${Math.round(pick.x)},${Math.round(pick.y)}`);
-    clicks.push({ x: Number(pick.x.toFixed(2)), y: Number(pick.y.toFixed(2)) });
-  }
-  if (clicks.length !== Number(data.click_count || prompt.length)) return null;
-  return { clicks, _blobs: blobs.map((b) => [b.color, b.shape, b.iou, b.area]) };
-}
-
-/**
- * Captcha solving order:
- *   1. `--captcha-cmd` when the caller supplied one;
- *   2. the bundled `captcha-solve.py` when python + opencv are present — it is
- *      the solver this line was proven with (slider 6/6 and image_click 8/8 live
- *      verifies), so it is preferred whenever it can run;
- *   3. the built-in JS solver: the slider path matches the python numbers, the
- *      image_click path is best effort (measured weaker live), so keep the
- *      retries (`captchaToken` asks for a new challenge every attempt).
- */
-let PY_SOLVER = null; // { cmd, args } once probed
-function pythonSolver() {
-  if (PY_SOLVER !== null) return PY_SOLVER;
-  const script = path.join(ROOT, 'captcha-solve.py');
-  PY_SOLVER = false;
-  if (!fs.existsSync(script)) return PY_SOLVER;
-  for (const bin of [process.env.PYTHON, 'python', 'python3'].filter(Boolean)) {
-    const probe = spawnSync(bin, ['-c', 'import cv2, numpy, PIL'], { encoding: 'utf8', timeout: 20000, windowsHide: true });
-    if (!probe.error && probe.status === 0) {
-      PY_SOLVER = { cmd: bin, args: [script] };
-      break;
-    }
-  }
-  return PY_SOLVER;
-}
-
-function solveChallenge(challenge) {
-  if (CAPTCHA_CMD) {
-    const r = spawnSync(CAPTCHA_CMD, {
-      shell: true,
-      input: JSON.stringify(challenge),
-      encoding: 'utf8',
-      timeout: 90000,
-      windowsHide: true,
-    });
-    if (r.error) return { ok: false, error: String(r.error.message).slice(0, 120) };
-    try {
-      return JSON.parse(String(r.stdout || '{}').trim());
-    } catch (e) {
-      return { ok: false, error: `captcha-cmd output unreadable: ${String(r.stdout || r.stderr).slice(0, 120)}` };
-    }
-  }
-  const py = pythonSolver();
-  if (py) {
-    const r = spawnSync(py.cmd, py.args, {
-      input: JSON.stringify(challenge),
-      encoding: 'utf8',
-      timeout: 90000,
-      windowsHide: true,
-    });
-    if (!r.error) {
-      try {
-        const ans = JSON.parse(String(r.stdout || '{}').trim());
-        if (ans && ans.ok) return ans;
-      } catch (e) {
-        /* fall through to the built-in solver */
-      }
-    }
-  }
-  const mode = challenge.mode;
-  try {
-    const answer = mode === 'slider' ? solveSlider(challenge.slider || {}) : solveImageClick(challenge.image_click || {});
-    if (!answer) return { ok: false, error: `no answer (${mode})` };
-    return { ok: true, mode, solver: 'embedded-js', ...answer };
-  } catch (e) {
-    return { ok: false, error: `${mode}: ${String(e.message).slice(0, 140)}` };
-  }
-}
-
-/** A solved captcha token, for the pinned exit (single use, 900 s). */
 async function captchaToken(exit, tries = 6) {
-  for (let i = 0; i < tries; i++) {
-    const ch = await exitJson(exit, `${API}/auth/captcha/challenge`, {
-      method: 'POST',
-      body: {},
-      headers: { origin: BASE, referer: `${BASE}/register` },
-      timeoutMs: 25000,
-    });
-    const data = ch.json && ch.json.data;
-    if (!data) {
-      log(`  captcha challenge ${ch.status} ${String(ch.text).slice(0, 90)}`);
-      continue;
-    }
-    const ans = solveChallenge(data);
-    if (!ans.ok) {
-      log(`  solver failed (${data.mode}): ${ans.error}`);
-      continue;
-    }
-    const body = { challenge_id: data.challenge_id };
-    if (data.mode === 'slider') {
-      body.drop_x = ans.drop_x;
-      body.trajectory = ans.trajectory;
-    } else {
-      body.clicks = ans.clicks;
-    }
-    const vr = await exitJson(exit, `${API}/auth/captcha/verify`, {
-      method: 'POST',
-      body,
-      headers: { origin: BASE, referer: `${BASE}/register` },
-      timeoutMs: 25000,
-    });
-    const token = vr.json && vr.json.data && vr.json.data.captcha_token;
-    if (token) return { token, mode: data.mode };
-    log(`  captcha verify ${data.mode} -> ${vr.status} ${String(vr.text).slice(0, 100)}`);
-  }
-  return null;
+  if (!AUTO && !CAPTCHA_CMD) throw new Error('--no-auto: no captcha source — pass --captcha-cmd "<cmd>"');
+  return solveCaptcha({
+    type: 'auto',
+    url: `${API}/auth/captcha/challenge`,
+    proxy: exit ? exit.line : null,
+    externalCmd: CAPTCHA_CMD,
+    tries,
+    log,
+  });
 }
 
 // ------------------------------------------------------------------- mail
@@ -1179,7 +413,6 @@ async function signUp(exit, relay) {
   }
   const box = await newMailbox(exit);
   const cap = await captchaToken(exit);
-  if (!cap) throw new Error('captcha unsolved');
   const sentAt = Math.floor(Date.now() / 1000);
   const sent = await exitJson(exit, `${API}/auth/send-verify-code`, {
     method: 'POST',
@@ -1194,7 +427,6 @@ async function signUp(exit, relay) {
   const got = await pollCode(box, { since: sentAt });
   if (!got) throw new Error(`no e-mail code for ${box.address}`);
   const cap2 = await captchaToken(exit);
-  if (!cap2) throw new Error('captcha unsolved (register)');
   const password = randPass();
   const reg = await exitJson(exit, `${API}/auth/register`, {
     method: 'POST',
@@ -1339,16 +571,25 @@ async function verifyOnly() {
   }
   const relay = (await relayBaseOf(exits[0]).catch(() => ({ relay: DEFAULT_RELAY }))).relay;
   let live = 0;
+  const dead = [];
   for (let i = 0; i < keys.length; i++) {
     const exit = exits[i % exits.length];
+    const t0 = Date.now();
     try {
       const g = await chatGate(exit, keys[i], MODEL, relay);
+      const ms = Date.now() - t0;
       const mark = `${pad(i + 1)}/${pad(keys.length)}`;
       if (g.ok) live++;
-      console.log(`  ${g.ok ? '✔' : '✘'} ${mark} ${keys[i].slice(0, 14)}… chat=${g.status} ${g.ok ? '' : g.sample}`);
+      else dead.push(keys[i]);
+      console.log(`  ${g.ok ? '✔' : '✘'} ${mark} ${keys[i].slice(0, 14)}… chat=${g.status} ${ms}ms ${g.ok ? '' : g.sample}`);
     } catch (e) {
-      console.log(`  ✘ ${pad(i + 1)}/${pad(keys.length)} ${keys[i].slice(0, 14)}… ${String(e.message).slice(0, 90)}`);
+      dead.push(keys[i]);
+      console.log(`  ✘ ${pad(i + 1)}/${pad(keys.length)} ${keys[i].slice(0, 14)}… ${Date.now() - t0}ms ${String(e.message).slice(0, 90)}`);
     }
+  }
+  if (dead.length) {
+    fs.appendFileSync(path.join(ROOT, 'keys-dead.txt'), dead.map((k) => `${k}\n`).join(''));
+    console.log(`  ${dead.length} dead key(s) written to keys-dead.txt`);
   }
   console.log(`verify: ${live}/${keys.length} keys live`);
   process.exit(live === keys.length ? 0 : 1);
@@ -1442,7 +683,7 @@ async function connect9router() {
     const raw = SOLVE_FILE === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(SOLVE_FILE, 'utf8');
     const challenge = JSON.parse(raw);
     const c = challenge.data && challenge.data.mode ? challenge.data : challenge;
-    const ans = solveChallenge(c);
+    const ans = solveChallenge(c, { externalCmd: CAPTCHA_CMD });
     console.log(JSON.stringify(ans, null, 1));
     process.exit(ans.ok ? 0 : 1);
   }

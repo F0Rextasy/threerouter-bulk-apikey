@@ -29,7 +29,7 @@
 [![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6?style=for-the-badge)](#-connect-to-omniroute)
 [![X](https://img.shields.io/badge/X-%40bigbullapp-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/bigbullapp)
 
-[🛠 Inicio rápido](#-quick-start) · [🎁 Nivel gratuito](#-free-tier--how-much-you-get) · [🤖 Modelos](#-models--all-5-of-them) · [🧪 Usa la API](#-how-to-use-the-api) · [✅ Verificado](#-verified-working--every-key-is-tested) · [🧭 Cómo funciona](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Opciones](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Problemas](#-issues)
+[🛠 Inicio rápido](#-quick-start) · [🎁 Nivel gratuito](#-free-tier--how-much-you-get) · [🤖 Modelos](#-models--all-5-of-them) · [🧪 Usar la API](#-how-to-use-the-api) · [✅ Verificado](#-verified-working--every-key-is-tested) · [🧭 Cómo funciona](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Opciones](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Problemas](#-issues)
 
 </div>
 
@@ -43,7 +43,7 @@
 
 ## ✨ Por qué existe esto
 
-ThreeRouter ejecuta **Sub2API v0.2.0** (un panel Go + Vue, *no* new-api: `/api/status` y `/api/pricing` responden `404 page not found`, las puertas reales están bajo `/api/v1`). Cada cuenta nueva llega con **$10 de saldo gastable** — la página de ayuda lo llama *"Bono predeterminado de 2 USD, bono de 10 USD por unirse al grupo"*, y el saldo realmente paga las llamadas (medido: `10.00` → `9.99996524` tras un chat). El registro es correo electrónico + código de 6 caracteres, pero **no** está libre de captcha: el panel sirve su propia "verificación humana" (un deslizador de rompecabezas o un puzle de clic sobre imagen). Ambos modos se resuelven **dentro de esta herramienta** — sin navegador, sin servicio de resolución de terceros, sin dependencias — y toda la línea quedó demostrada acuñando **cada cuenta acuñó su propia clave** (lotes 3 + 5/7 + 2/2: un correo perdido cuesta un buzón, nunca una clave), cada clave se conservó solo tras un chat en vivo con 200 y luego se volvió a comprobar de forma independiente en **10/10**.
+ThreeRouter ejecuta **Sub2API v0.2.0** (un panel Go + Vue, *no* new-api: `/api/status` y `/api/pricing` responden `404 page not found`, las puertas reales están bajo `/api/v1`). Cada cuenta nueva llega con **$10 de saldo gastable** — la página de ayuda lo llama *"Bono predeterminado de 2 USD, bono de 10 USD por unirse al grupo"*, y el saldo realmente paga las llamadas (medido: `10.00` → `9.99996524` tras un chat). El registro es correo electrónico + código de 6 caracteres, pero **no** está libre de captcha: el panel sirve su propia "verificación humana" (un deslizador de rompecabezas o un puzle de clic en imágenes). Ambos modos se resuelven **dentro de esta herramienta** — sin navegador, sin servicio de resolución de terceros, sin dependencias — y toda la línea quedó demostrada acuñando **cada cuenta acuñó su propia clave** (lotes 3 + 5/7 + 2/2: un correo perdido cuesta un buzón, nunca una clave), cada clave se conservó solo tras un chat en vivo con 200 y luego se volvió a comprobar de forma independiente en **10/10**.
 
 ## 🎁 Nivel gratuito — cuánto obtienes
 
@@ -53,11 +53,11 @@ ThreeRouter ejecuta **Sub2API v0.2.0** (un panel Go + Vue, *no* new-api: `/api/s
 | Captcha | el widget **propio** del panel: `mode: slider` (rompecabezas) o `mode: image_click` (haz clic en N formas en orden de color) — resuelto sin conexión por esta herramienta |
 | Puerta de correo | código **alfanumérico de 6 caracteres** (p. ej. `74AGMV`) + una lista blanca de 198 dominios (`gmail.com`, `hotmail.com`, `outlook.com`, `live.com`, `icloud.com`, `proton.me` …) |
 | Otras puertas | **sin** teléfono, **sin** OAuth (GitHub/Google/WeChat/LinuxDo/OIDC todos `false`), **sin** código de invitación |
-| Catálogo | 5 ids de modelo en la línea de clave verificada (`minimax-m3`, `deepseek-v4-pro`, `glm-5.3`, `kimi-k3`, `qwen3.8-max`) |
+| Catálogo | 5 ids de modelo en la línea de claves verificada (`minimax-m3`, `deepseek-v4-pro`, `glm-5.3`, `kimi-k3`, `qwen3.8-max`) |
 | Precios | basados en saldo (1 CNY = 1 USD al recargar, `rate_multiplier` del grupo); **no** hay clase de modelo a $0 ni endpoint `/api/pricing` — el bono de registro *es* el nivel gratuito |
 | La unidad que escala | **una cuenta = una clave** |
 
-> 💡 El nivel gratuito lo define ThreeRouter y puede cambiar. Consulta las cifras en vivo en [threerouter.com](https://threerouter.com) — y deja que la propia puerta de la herramienta decida:
+> 💡 El nivel gratuito lo define ThreeRouter y puede cambiar. Consulta los números en vivo en [threerouter.com](https://threerouter.com) — y deja que la propia puerta de la herramienta decida:
 
 ```bash
 node src/cli.js --verify-only     # every key in keys.txt is re-tested with a real chat call
@@ -91,6 +91,17 @@ print(c.chat.completions.create(model="minimax-m3",
 
 Los modelos de razonamiento de este panel a menudo llenan primero `reasoning_content`: da a `max_tokens` al menos ~32 o el campo `content` vuelve vacío (la clave sigue estando bien).
 
+## ⚡ Un solo comando
+
+```bash
+node src/cli.js --count N      # mint N keys — the panel's slider/image captcha is solved in-process
+node src/cli.js --dry          # print the resolved plan: writes nothing, sends nothing
+```
+
+`--auto` es el valor predeterminado y no necesita nada instalado más allá de Node: `src/solver.js` contiene el motor de captcha (correlación de deslizador + IoU de plantilla para clic en imágenes), y recurre al `captcha-solve.py` incluido para los modos que no puede hacer de forma nativa cuando python + opencv están presentes — sin navegador, sin CDP, sin servicio de resolución de terceros. Los proxies siguen siendo opcionales: un `proxies.txt` junto al CLI se usa automáticamente, de lo contrario la herramienta va directa. `--no-auto` desactiva el solucionador integrado; las salidas avanzadas (`--captcha-cmd`, `--solve-file`) son para operadores que ya tienen su propio solucionador.
+
+> ⚠️ **Términos y riesgo de cuenta.** Automatizar un proveedor puede violar sus Términos de Servicio y provocar el baneo de cuentas o IPs. Ejecutas esto en cuentas que te pertenecen, desde tu propia máquina, bajo tu propio riesgo; la herramienta solo maneja la propia página de registro del sitio y nunca elude una puerta de pago. Lee los Términos del proveedor antes de una campaña grande.
+
 ## 🛠 Inicio rápido
 
 ```bash
@@ -102,26 +113,26 @@ node src/cli.js --screen         # exit pool self-test
 node src/cli.js --connect-9router
 ```
 
-Una clave se escribe en `keys.txt` **solo** después de que `/v1/chat/completions` responda 200 con contenido; `accounts.json` guarda el correo, el grupo, la concesión y la salida que usó cada cuenta. Captcha: `captcha-solve.py` (incluido junto al CLI) se usa cuando python + opencv están instalados — ese es el solucionador con el que se acuñaron las claves de este repositorio (slider 6/6 y verificaciones en vivo de image_click); sin python entra en juego el solucionador JS integrado sin dependencias (equivalente al slider, image_click con el mejor esfuerzo, un nuevo desafío por reintento). `--captcha-cmd <cmd>` reemplaza a cualquiera de los dos (JSON del desafío por stdin, JSON de la respuesta por stdout); `--solve-file <challenge.json>` resuelve un desafío guardado sin conexión.
+Una clave se escribe en `keys.txt` **solo** después de que `/v1/chat/completions` responda 200 con contenido; `accounts.json` guarda el correo, el grupo, la concesión y la salida que usó cada cuenta. Captcha: `captcha-solve.py` (incluido junto al CLI) se usa cuando python + opencv están instalados — ese es el solucionador con el que se acuñaron las claves de este repositorio (deslizador 6/6 y verificaciones en vivo de image_click); sin python, el solucionador JS integrado y sin dependencias toma el relevo (equivalente para deslizador, mejor esfuerzo para image_click, un nuevo desafío por reintento). `--captcha-cmd <cmd>` reemplaza a cualquiera de los dos (JSON del desafío por stdin, JSON de la respuesta por stdout); `--solve-file <challenge.json>` resuelve un desafío guardado sin conexión.
 
 ### 🖱️ El lanzador
 
-El lanzador pide la lista de proxies y la cantidad, las recuerda y ejecuta el CLI — acuñar, verificar, probar salidas, ajustes, ayuda, Conectar a 9Router.
+`npm start` abre el menú del lanzador, y el elemento **1) Mint keys** hace una sola pregunta — cuántas claves — y luego ejecuta la acuñación con `--auto`: el captcha se resuelve en proceso y un `proxies.txt` junto al CLI se toma automáticamente (de lo contrario, directo). No hay pregunta sobre captcha, token ni proxy. Los demás elementos del menú envuelven `--verify-only`, `--screen` y los conectores 9Router / OmniRoute.
 
 ## ✅ Verificado y funcionando — cada clave se prueba
 
 | Comprobación | Resultado |
 | --- | --- |
 | `GET /api/v1/settings/public` | **200** — `registration_enabled`, `email_verify_enabled`, `registration_click_captcha_enabled: true`, lista blanca de 198 dominios, sin OAuth |
-| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 s, un solo uso, vinculado a la salida que resuelve); resoluciones en vivo: slider **6/6** (correlación r = 0.998–0.9998) e image_click **8/8** con `captcha-solve.py`; los mismos desafíos guardados, reproducidos sin conexión, muestran el slider JS integrado en desplazamientos idénticos |
-| `POST /api/v1/auth/send-verify-code` | **200** — código entregado (un alias de temp.tf reutilizado responde `409 EMAIL_EXISTS` y la herramienta rota el buzón) |
-| `POST /api/v1/auth/register` | **200** — `access_token`; el código debe gastarse dentro de su ventana de 15 minutos |
+| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 s, un solo uso, vinculado a la salida que lo resuelve); resoluciones en vivo: deslizador **6/6** (correlación r = 0.998–0.9998) e image_click **8/8** con `captcha-solve.py`; los mismos desafíos guardados reproducidos sin conexión muestran el deslizador JS integrado en desplazamientos idénticos |
+| `POST /api/v1/auth/send-verify-code` | **200** — código entregado (un alias reutilizado de temp.tf responde `409 EMAIL_EXISTS` y la herramienta rota el buzón) |
+| `POST /api/v1/auth/register` | **200** — `access_token`; el código debe usarse dentro de su ventana de 15 minutos |
 | `GET /api/v1/auth/me` | **200** — `balance: 10` en cada cuenta |
 | `POST /api/v1/keys` | **200** — `sk-…` devuelto una vez (grupo `12:default`; `13:vip` también ofrecido) |
 | flujo de acuñación — una clave por cuenta, escrita **solo** tras un chat 200 | 10 cuentas mediante el raíl de node + 1 cuenta mediante el propio CLI incluido (45 s de principio a fin, chat-200) |
 | `POST /v1/chat/completions` (`minimax-m3`) | **200** con contenido real para cada clave antes de conservarla, y recomprobada una por una |
 | recomprobación independiente de las claves del raíl de node (en serie, salida nueva) | **todas pasan** (2026-10-21; evidencia por clave en `out/keys-verify.json`) |
-| notas del lado del panel | el puzle de imagen responde ocasionalmente `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (un desafío obsoleto o perdido) — la herramienta simplemente solicita uno nuevo; un alias de temp.tf compartido puede existir ya en el panel (`EMAIL_EXISTS` → nuevo buzón) y se ha visto que los buzones de outlook.com nunca entregan, así que el CLI usa por defecto `--mail-providers hotmail` con tres intentos |
+| notas del lado del panel | el puzle de imágenes ocasionalmente responde `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (un desafío obsoleto o perdido) — la herramienta simplemente solicita uno nuevo; un alias compartido de temp.tf puede existir ya en el panel (`EMAIL_EXISTS` → nuevo buzón) y se ha visto que los buzones de outlook.com nunca entregan, así que el CLI usa por defecto `--mail-providers hotmail` con tres intentos |
 
 > **Puertas de calidad.** Cada clave aquí pasó un `chat-200` en vivo antes de escribirse en `keys.txt`
 > (las claves muertas nunca se publican). Las combinaciones del router siguen la misma regla a nivel de modelo: una entrada se
@@ -142,8 +153,8 @@ inbox (one address per account)                                  a fresh address
 
 | Paso | Llamada | Notas |
 | --- | --- | --- |
-| puertas | `GET /api/v1/settings/public` | indicadores de registro / correo / captcha, lista blanca de correo |
-| captcha | `POST /api/v1/auth/captcha/challenge` → resolver → `POST /api/v1/auth/captcha/verify` | `captcha_token`, un solo uso, **misma salida** que las llamadas que lo gastan |
+| puertas | `GET /api/v1/settings/public` | indicadores de registro / correo / captcha, lista blanca de correos |
+| captcha | `POST /api/v1/auth/captcha/challenge` → resolver → `POST /api/v1/auth/captcha/verify` | `captcha_token`, un solo uso, **misma salida** que las llamadas que lo consumen |
 | buzón | alias de temp.tf (o Emailnator `@gmail.com`) | solo los dominios en la lista blanca del panel |
 | enviar código | `POST /api/v1/auth/send-verify-code` | `{email, click_captcha_token}` |
 | código | sondear el buzón | alfanumérico de 6 caracteres, ventana de 15 minutos |
@@ -156,6 +167,9 @@ inbox (one address per account)                                  a fresh address
 
 ```bash
 node src/cli.js --count N         # mint N keys (captcha + chat gate per account)
+node src/cli.js --auto            # solve the captcha with src/solver.js (default, no browser)
+node src/cli.js --no-auto         # disable the embedded solver (--captcha-cmd then required)
+node src/cli.js --dry             # resolve the plan and exit (no write, no request)
 node src/cli.js --group 12        # pin the key group (id or name)
 node src/cli.js --verify-only     # re-verify every key in keys.txt
 node src/cli.js --screen          # exit pool self-test
@@ -165,14 +179,14 @@ node src/cli.js --connect-9router
 node src/cli.js --help
 ```
 
-| Env | Predeterminado | Significado |
+| Variable de entorno | Predeterminado | Significado |
 | --- | --- | --- |
 | `THREEROUTER_PROXIES` | `proxies.txt` | grupo de salidas, una línea por proxy |
 | `THREEROUTER_MODEL` | `minimax-m3` | modelo para la verificación en vivo |
 
 ## 🛰️ Detrás de un proxy
 
-**Opcional — recomendado a escala (límites por IP, bloqueos).** La herramienta también funciona sin proxy.
+**Opcional — recomendado a escala (límites por IP, baneos).** La herramienta también funciona sin proxy.
 
 - **Con un grupo:** pasa `--pool <file>` (o define `THREEROUTER_PROXIES`) y cada solicitud pasa por una salida de esa lista. Un token de captcha se emite a la salida que resolvió el puzle, así que toda la cuenta (ambas resoluciones y la llamada de registro) se ejecuta en **una salida fijada** — si esa salida muere, el intento falla y se usa la siguiente salida, nunca un respaldo directo.
 - **Sin un grupo:** el CLI imprime `running WITHOUT a proxy (direct)` y se conecta directamente. Nada del registro, la acuñación de claves o la verificación cambia — solo desde dónde salen los paquetes.
@@ -184,11 +198,13 @@ node src/cli.js --help
 | --- | --- |
 | `keys.txt` | una clave verificada en vivo por línea — ignorada por git |
 | `accounts.json` | correo / grupo / saldo de registro / salida por cuenta |
-| `captcha-solve.py` | el solucionador de captcha (python + opencv): correlación del slider e IoU de plantilla para image-click |
+| `captcha-solve.py` | el solucionador de captcha (python + opencv): correlación de deslizador e IoU de plantilla para clic en imágenes |
 | `proxies.txt` | tus salidas — ignorado por git |
+| `keys-dead.txt` | claves que fallaron la puerta de chat — escrito por `--verify-only` — ignorado por git |
+| `src/solver.js` | el motor de captcha (deslizador + image_click, ayudante de python, entrada `--auto`) |
 | `out/` | registros de ejecución — ignorados por git |
 
-## 🔌 Conectar a 9Router
+## 🔌 Conectar con 9Router
 
 [9Router](https://9router.com) es un router autoalojado y compatible con OpenAI:
 
@@ -197,9 +213,9 @@ node src/cli.js --connect-9router --9router-base http://localhost:20128 --9route
   --api-key YOUR_KEY
 ```
 
-Valores predeterminados: `--9router-prefix threerouter`, `--9router-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Los modelos se sirven como `threerouter/<model id>`.
+Predeterminados: `--9router-prefix threerouter`, `--9router-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Los modelos se sirven como `threerouter/<model id>`.
 
-## 🔌 Conectar a OmniRoute
+## 🔌 Conectar con OmniRoute
 
 [OmniRoute](https://omniroute.online) es un router autoalojado y compatible con OpenAI:
 
@@ -208,7 +224,7 @@ node src/cli.js --connect-omniroute --omniroute-base http://localhost:20128 --om
   --api-key YOUR_KEY
 ```
 
-Valores predeterminados: `--omniroute-prefix threerouter`, `--omniroute-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Los modelos se sirven como `threerouter/<model id>`.
+Predeterminados: `--omniroute-prefix threerouter`, `--omniroute-base-url https://api.threerouter.com/v1`, `--model minimax-m3`. Los modelos se sirven como `threerouter/<model id>`.
 
 ## 🔑 Qué te da una clave
 

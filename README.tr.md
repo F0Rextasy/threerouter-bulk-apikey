@@ -43,24 +43,24 @@
 
 ## ✨ Bu neden var
 
-ThreeRouter, **Sub2API v0.2.0** çalıştırır (Go + Vue paneli, *new-api değil*: `/api/status` ve `/api/pricing` `404 page not found` yanıtı verir, gerçek kapılar `/api/v1` altında bulunur). Her yeni hesap **10 $ harcanabilir bakiye** ile açılır — yardım sayfası buna *"Varsayılan 2 USD bonus, gruba katılım için 10 USD bonus"* der ve bakiye gerçekten çağrıları öder (ölçüldü: bir sohbetten sonra `10.00` → `9.99996524`). Kayıt, e-posta + 6 karakterli koddur, ancak **captcha'sız değildir**: panel kendi "insan doğrulamasını" sunar (bir yapboz kaydırıcısı veya resim tıklama bulmacası). Her iki mod da **bu aracın içinde** çözülür — tarayıcı yok, üçüncü taraf çözüm servisi yok, bağımlılık yok — ve tüm hat **her hesap kendi anahtarını oluşturdu** şeklinde kanıtlandı (partiler 3 + 5/7 + 2/2: kaybedilen bir e-posta bir posta kutusuna mal olur, asla bir anahtara değil), her anahtar yalnızca canlı bir sohbet 200'ünden sonra tutuldu ve ardından bağımsız olarak **10/10** ile yeniden kontrol edildi.
+ThreeRouter, **Sub2API v0.2.0** çalıştırır (bir Go + Vue paneli, *new-api değil*: `/api/status` ve `/api/pricing` `404 page not found` yanıtı verir, gerçek kapılar `/api/v1` altında bulunur). Her yeni hesap **10 $ harcanabilir bakiye** ile açılır — yardım sayfası buna *"Varsayılan 2 USD bonus, gruba katılım için 10 USD bonus"* der ve bakiye gerçekten çağrıları öder (ölçüldü: bir sohbetten sonra `10.00` → `9.99996524`). Kayıt, e-posta + 6 karakterli koddur, ancak **captcha'sız değildir**: panel kendi "insan doğrulamasını" sunar (bir yapboz kaydırıcısı veya resim tıklama bulmacası). Her iki mod da **bu aracın içinde** çözülür — tarayıcı yok, üçüncü taraf çözüm servisi yok, bağımlılık yok — ve tüm hat **her hesap kendi anahtarını üretti** şeklinde kanıtlandı (partiler 3 + 5/7 + 2/2: kaybolan bir e-posta bir posta kutusuna mal olur, asla bir anahtara değil), her anahtar yalnızca canlı bir sohbet 200'ünden sonra tutuldu ve ardından bağımsız olarak **10/10** ile yeniden kontrol edildi.
 
 ## 🎁 Ücretsiz katman — ne kadar alırsınız
 
 | Ne | Değer |
 | --- | --- |
 | Kayıt bonusu | **10 $ bakiye** (`GET /api/v1/auth/me` → `balance: 10`; harcanabilir — bir sohbet bunu `9.99996524`'e taşıdı) |
-| Captcha | panelin **kendi** widget'ı: `mode: slider` (yapboz) veya `mode: image_click` (renk sırasına göre N şekle tıklayın) — bu araç tarafından çevrimdışı çözülür |
+| Captcha | panelin **kendi** widget'ı: `mode: slider` (yapboz) veya `mode: image_click` (N şekli renk sırasına göre tıklayın) — bu araç tarafından çevrimdışı çözülür |
 | E-posta kapısı | **6 karakterli alfanümerik** kod (örn. `74AGMV`) + 198 alan adlı beyaz liste (`gmail.com`, `hotmail.com`, `outlook.com`, `live.com`, `icloud.com`, `proton.me` …) |
 | Diğer kapılar | **telefon yok**, **OAuth yok** (GitHub/Google/WeChat/LinuxDo/OIDC hepsi `false`), **davet kodu yok** |
 | Katalog | doğrulanmış anahtar hattında 5 model kimliği (`minimax-m3`, `deepseek-v4-pro`, `glm-5.3`, `kimi-k3`, `qwen3.8-max`) |
-| Fiyatlandırma | bakiyeye dayalı (yüklemede 1 CNY = 1 USD, grup `rate_multiplier`); **0 $ model sınıfı** yoktur ve `/api/pricing` uç noktası yoktur — kayıt bonusu *ücretsiz katmanın ta kendisidir* |
+| Fiyatlandırma | bakiyeye dayalı (yüklemede 1 CNY = 1 USD, grup `rate_multiplier`); **0 $ model sınıfı** yoktur ve `/api/pricing` uç noktası yoktur — kayıt bonusu *ücretsiz katmanın kendisidir* |
 | Ölçeklenen birim | **bir hesap = bir anahtar** |
 
 > 💡 Ücretsiz katman ThreeRouter tarafından belirlenir ve değişebilir. Güncel sayıları [threerouter.com](https://threerouter.com) adresinden kontrol edin — ve kararı aracın kendi kapısına bırakın:
 
 ```bash
-node src/cli.js --verify-only     # every key in keys.txt is re-tested with a real chat call
+node src/cli.js --verify-only     # keys.txt içindeki her anahtar gerçek bir sohbet çağrısıyla yeniden test edilir
 ```
 
 ## 🤖 Modeller — hepsi 5 tane
@@ -69,7 +69,7 @@ Canlı bir anahtarla `GET /v1/models` **5 model** listeler; doğrulanmış hat `
 
 | Model Kimliği | Doğrulandı |
 | --- | --- |
-| `minimax-m3` | **her anahtar, `providers/threerouter/keys.txt` içindeki oluşturma sırasında sohbet-200**; gönderilen CLI aracılığıyla bağımsız yeniden kontrol (`--verify-only`) |
+| `minimax-m3` | `providers/threerouter/keys.txt` konumundaki üretim sırasında **her anahtar, sohbet-200**; gönderilen CLI aracılığıyla bağımsız yeniden kontrol (`--verify-only`) |
 | `deepseek-v4-pro` · `glm-5.3` · `kimi-k3` · `qwen3.8-max` | aynı anahtarlarda `/v1/models` tarafından listelenir |
 
 ```bash
@@ -78,7 +78,7 @@ curl https://api.threerouter.com/v1/chat/completions \
   -d '{"model":"minimax-m3","messages":[{"role":"user","content":"hi"}],"max_tokens":32}'
 ```
 
-## 🧪 API nasıl kullanılır
+## 🧪 API'yi nasıl kullanırım
 
 Temel URL **`https://api.threerouter.com/v1`** — OpenAI uyumlu (konsolun kendisi bunu `api_base_url` olarak tanıtır).
 
@@ -89,41 +89,52 @@ print(c.chat.completions.create(model="minimax-m3",
       messages=[{"role":"user","content":"hi"}], max_tokens=32).choices[0].message.content)
 ```
 
-Bu paneldeki akıl yürütme modelleri genellikle önce `reasoning_content` alanını doldurur: `max_tokens` değerini en az ~32 verin, aksi halde `content` alanı boş döner (anahtar yine de sağlamdır).
+Bu paneldeki akıl yürütme modelleri genellikle önce `reasoning_content` alanını doldurur: `max_tokens` değerini en az ~32 verin, aksi halde `content` alanı boş döner (anahtar yine de sorunsuzdur).
+
+## ⚡ Tek komut
+
+```bash
+node src/cli.js --count N      # N anahtar üret — panelin kaydırıcı/resim captcha'sı süreç içinde çözülür
+node src/cli.js --dry          # çözümlenen planı yazdır: hiçbir şey yazmaz, hiçbir şey göndermez
+```
+
+`--auto` varsayılandır ve Node dışında hiçbir şeyin kurulu olmasını gerektirmez: `src/solver.js` captcha motorunu barındırır (kaydırıcı korelasyonu + resim tıklama şablon IoU) ve python + opencv mevcut olduğunda yerel olarak yapamadığı modlar için paketlenmiş `captcha-solve.py` dosyasına başvurur — tarayıcı yok, CDP yok, üçüncü taraf çözüm servisi yok. Proxy'ler isteğe bağlı kalır: CLI'nin yanındaki bir `proxies.txt` otomatik olarak kullanılır, aksi halde araç doğrudan bağlanır. `--no-auto` gömülü çözücüyü devre dışı bırakır; gelişmiş kaçış kapıları (`--captcha-cmd`, `--solve-file`) zaten kendi çözücüsüne sahip operatörler içindir.
+
+> ⚠️ **Koşullar ve hesap riski.** Bir sağlayıcıyı otomatikleştirmek, Hizmet Şartlarını ihlal edebilir ve hesapların veya IP'lerin yasaklanmasına yol açabilir. Bunu sahip olduğunuz hesaplarda, kendi makinenizden, kendi riskinizle çalıştırırsınız; araç yalnızca sitenin kendi kayıt sayfasını yönlendirir ve ücretli bir kapıyı asla atlamaz. Büyük bir kampanyadan önce sağlayıcının Hizmet Şartlarını okuyun.
 
 ## 🛠 Hızlı başlangıç
 
 ```bash
 cd threerouter-bulk-apikey
-printf 'socks5://host:port\n' > proxies.txt   # optional — without it the tool runs direct
-node src/cli.js --count 5        # mint (slider/image captcha solved in-process)
-node src/cli.js --verify-only    # re-check every key in keys.txt
-node src/cli.js --screen         # exit pool self-test
+printf 'socks5://host:port\n' > proxies.txt   # isteğe bağlı — olmadan araç doğrudan çalışır
+node src/cli.js --count 5        # üret (kaydırıcı/resim captcha süreç içinde çözülür)
+node src/cli.js --verify-only    # keys.txt içindeki her anahtarı yeniden kontrol et
+node src/cli.js --screen         # çıkış havuzu öz testi
 node src/cli.js --connect-9router
 ```
 
-Bir anahtar `keys.txt` dosyasına **yalnızca** `/v1/chat/completions` içerikle birlikte 200 yanıtı verdikten sonra yazılır; `accounts.json` her hesabın kullandığı e-postayı, grubu, hibeyi ve çıkışı saklar. Captcha: `captcha-solve.py` (CLI'nin yanında gönderilir) python + opencv kurulu olduğunda kullanılır — bu deponun anahtarlarının oluşturulduğu çözücüdür (slider 6/6 ve image_click canlı doğrulamaları); python yoksa yerleşik bağımlılıksız JS çözücü devreye girer (slider eşdeğeri, image_click en iyi çaba, her yeniden denemede bir yeni meydan okuma). `--captcha-cmd <cmd>` ikisinden birini değiştirir (stdin'de meydan okuma JSON'u, stdout'ta yanıt JSON'u); `--solve-file <challenge.json>` kaydedilmiş bir meydan okumayı çevrimdışı çözer.
+Bir anahtar `keys.txt` dosyasına **yalnızca** `/v1/chat/completions` içerikle 200 yanıt verdikten sonra yazılır; `accounts.json` her hesabın kullandığı e-postayı, grubu, hibeyi ve çıkışı saklar. Captcha: python + opencv kurulu olduğunda `captcha-solve.py` (CLI'nin yanında gönderilir) kullanılır — bu deponun anahtarlarının üretildiği çözücüdür (kaydırıcı 6/6 ve image_click canlı doğrulamaları); python olmadan yerleşik bağımlılıksız JS çözücü devralır (kaydırıcı eşdeğeri, image_click en iyi çaba, her yeniden denemede bir yeni meydan okuma). `--captcha-cmd <cmd>` ikisinden birini değiştirir (stdin'de meydan okuma JSON'u, stdout'ta yanıt JSON'u); `--solve-file <challenge.json>` kaydedilmiş bir meydan okumayı çevrimdışı çözer.
 
 ### 🖱️ Başlatıcı
 
-Başlatıcı proxy listesini ve sayıyı sorar, bunları hatırlar ve CLI'yi çalıştırır — oluştur, doğrula, çıkışları tara, ayarlar, yardım, 9Router'a Bağlan.
+`npm start` başlatıcı menüsünü açar ve **1) Anahtar üret** öğesi tek bir soru sorar — kaç anahtar — ardından üretimi `--auto` ile çalıştırır: captcha süreç içinde çözülür ve CLI'nin yanındaki bir `proxies.txt` otomatik olarak alınır (aksi halde doğrudan). Captcha, token veya proxy sorusu yoktur. Diğer menü öğeleri `--verify-only`, `--screen` ve 9Router / OmniRoute bağlayıcılarını sarar.
 
 ## ✅ Çalıştığı doğrulandı — her anahtar test edilir
 
 | Kontrol | Sonuç |
 | --- | --- |
 | `GET /api/v1/settings/public` | **200** — `registration_enabled`, `email_verify_enabled`, `registration_click_captcha_enabled: true`, 198 alan adlı beyaz liste, OAuth yok |
-| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 sn, tek kullanımlık, çözen çıkışa bağlı); canlı çözümler: slider **6/6** (korelasyon r = 0.998–0.9998) ve `captcha-solve.py` ile image_click **8/8**; aynı kaydedilmiş meydan okumaların çevrimdışı yeniden oynatılması, yerleşik JS slider'ın aynı ofsetlerde olduğunu gösterir |
+| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 sn, tek kullanımlık, çözen çıkışa bağlı); canlı çözümler: kaydırıcı **6/6** (korelasyon r = 0.998–0.9998) ve `captcha-solve.py` ile image_click **8/8**; aynı kaydedilmiş meydan okumaların çevrimdışı yeniden oynatılması, yerleşik JS kaydırıcısının aynı ofsetlerde olduğunu gösterir |
 | `POST /api/v1/auth/send-verify-code` | **200** — kod teslim edildi (yeniden kullanılan bir temp.tf takma adı `409 EMAIL_EXISTS` yanıtı verir ve araç posta kutusunu değiştirir) |
 | `POST /api/v1/auth/register` | **200** — `access_token`; kod 15 dakikalık penceresi içinde kullanılmalıdır |
 | `GET /api/v1/auth/me` | **200** — her hesapta `balance: 10` |
-| `POST /api/v1/keys` | **200** — `sk-…` bir kez döner (grup `12:default`; `13:vip` de sunulur) |
-| oluşturma akışı — hesap başına bir anahtar, **yalnızca** bir sohbet 200'ünden sonra yazılır | node hattı üzerinden 10 hesap + gönderilen CLI'nin kendisi üzerinden 1 hesap (baştan sona 45 sn, sohbet-200) |
+| `POST /api/v1/keys` | **200** — `sk-…` bir kez döndürülür (grup `12:default`; `13:vip` de sunulur) |
+| üretim akışı — hesap başına bir anahtar, **yalnızca** bir sohbet 200'ünden sonra yazılır | node hattı üzerinden 10 hesap + gönderilen CLI'nin kendisi üzerinden 1 hesap (baştan sona 45 sn, sohbet-200) |
 | `POST /v1/chat/completions` (`minimax-m3`) | tutulmadan önce her anahtar için gerçek içerikle **200** ve tek tek yeniden kontrol edildi |
-| node hattı anahtarlarının bağımsız yeniden kontrolü (seri, taze çıkış) | **hepsi geçti** (2026-10-21; anahtar başına kanıt `out/keys-verify.json` içinde) |
-| panel tarafı notlar | resim bulmacası ara sıra `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` yanıtı verir (eski veya kaçırılmış bir meydan okuma) — araç basitçe yeni bir tane ister; paylaşılan bir temp.tf takma adı panelde zaten var olabilir (`EMAIL_EXISTS` → yeni posta kutusu) ve outlook.com kutularının hiç teslim etmediği görülmüştür, bu yüzden CLI varsayılan olarak üç denemeyle `--mail-providers hotmail` kullanır |
+| node hattı anahtarlarının bağımsız yeniden kontrolü (seri, yeni çıkış) | **hepsi geçti** (2026-10-21; anahtar başına kanıt `out/keys-verify.json` içinde) |
+| panel tarafı notlar | resim bulmacası ara sıra `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` yanıtı verir (eski veya kaçırılmış bir meydan okuma) — araç basitçe yenisini ister; paylaşılan bir temp.tf takma adı panelde zaten var olabilir (`EMAIL_EXISTS` → yeni posta kutusu) ve outlook.com kutularının hiç teslim etmediği görülmüştür, bu yüzden CLI varsayılan olarak üç denemeyle `--mail-providers hotmail` kullanır |
 
-> **Kalite kapıları.** Buradaki her anahtar `keys.txt` dosyasına yazılmadan önce canlı bir `chat-200` geçti
+> **Kalite kapıları.** Buradaki her anahtar, `keys.txt` dosyasına yazılmadan önce canlı bir `chat-200` geçti
 > (ölü anahtarlar asla gönderilmez). Yönlendirici kombinasyonları model düzeyinde aynı kuralı izler: bir giriş
 > **yalnızca model `chat-200` yanıtlıyorsa ve araçları çağırabiliyorsa** eklenir — araç desteği olmayan bir model,
 > ölü bir anahtar veya ölü bir sağlayıcı eklenmek yerine çıkarılır. Doğrulama adımını istediğiniz zaman yeniden çalıştırın;
@@ -132,12 +143,12 @@ Başlatıcı proxy listesini ve sayıyı sorar, bunları hatırlar ve CLI'yi ça
 ## 🧭 Nasıl çalışır
 
 ```
-inbox (one address per account)                                  a fresh address per account
+gelen kutusu (hesap başına bir adres)                            hesap başına yeni bir adres
    │
-   ├─▶ sign-up: ThreeRouter page → e-mail address → code / link from the inbox
-   ├─▶ session: the account's cookies or access token in hand
-   ├─▶ key mint: the account's key endpoint → plaintext key returned once (written to disk immediately)
-   └─▶ live proof: POST https://api.threerouter.com/v1/chat/completions → real content = the key is live
+   ├─▶ kayıt: ThreeRouter sayfası → e-posta adresi → gelen kutusundan kod / bağlantı
+   ├─▶ oturum: hesabın çerezleri veya erişim token'ı elde
+   ├─▶ anahtar üretimi: hesabın anahtar uç noktası → düz metin anahtar bir kez döndürülür (hemen diske yazılır)
+   └─▶ canlı kanıt: POST https://api.threerouter.com/v1/chat/completions → gerçek içerik = anahtar canlı
 ```
 
 | Adım | Çağrı | Notlar |
@@ -155,27 +166,30 @@ inbox (one address per account)                                  a fresh address
 ## ⚙️ CLI seçenekleri
 
 ```bash
-node src/cli.js --count N         # mint N keys (captcha + chat gate per account)
-node src/cli.js --group 12        # pin the key group (id or name)
-node src/cli.js --verify-only     # re-verify every key in keys.txt
-node src/cli.js --screen          # exit pool self-test
-node src/cli.js --captcha-cmd 'node solver.js'   # external captcha solver
-node src/cli.js --solve-file chal.json           # offline: solve one saved challenge
+node src/cli.js --count N         # N anahtar üret (hesap başına captcha + sohbet kapısı)
+node src/cli.js --auto            # captcha'yı src/solver.js ile çöz (varsayılan, tarayıcı yok)
+node src/cli.js --no-auto         # gömülü çözücüyü devre dışı bırak (--captcha-cmd o zaman gerekli)
+node src/cli.js --dry             # planı çözümle ve çık (yazma yok, istek yok)
+node src/cli.js --group 12        # anahtar grubunu sabitle (kimlik veya ad)
+node src/cli.js --verify-only     # keys.txt içindeki her anahtarı yeniden doğrula
+node src/cli.js --screen          # çıkış havuzu öz testi
+node src/cli.js --captcha-cmd 'node solver.js'   # harici captcha çözücü
+node src/cli.js --solve-file chal.json           # çevrimdışı: kaydedilmiş bir meydan okumayı çöz
 node src/cli.js --connect-9router
 node src/cli.js --help
 ```
 
-| Ortam değişkeni | Varsayılan | Anlamı |
+| Ortam | Varsayılan | Anlam |
 | --- | --- | --- |
-| `THREEROUTER_PROXIES` | `proxies.txt` | çıkış havuzu, satır başına bir proxy |
+| `THREEROUTER_PROXIES` | `proxies.txt` | çıkış havuzu, proxy başına bir satır |
 | `THREEROUTER_MODEL` | `minimax-m3` | canlı doğrulama için model |
 
 ## 🛰️ Proxy arkasında
 
 **İsteğe bağlı — ölçekte önerilir (IP başına limitler, yasaklar).** Araç proxy olmadan da çalışır.
 
-- **Bir havuzla:** `--pool <file>` geçin (veya `THREEROUTER_PROXIES` ayarlayın) ve her istek o listeden bir çıkış üzerinden gider. Bir captcha token'ı bulmacayı çözen çıkışa verilir, bu yüzden tüm hesap (her iki çözüm ve kayıt çağrısı) **tek bir sabitlenmiş çıkışta** çalışır — o çıkış ölürse deneme başarısız olur ve bir sonraki çıkış kullanılır, asla doğrudan bir geri dönüş olmaz.
-- **Havuz olmadan:** CLI `running WITHOUT a proxy (direct)` yazdırır ve doğrudan bağlanır. Kayıt, anahtar oluşturma veya doğrulama konusunda hiçbir şey değişmez — yalnızca paketlerin nereden çıktığı değişir.
+- **Bir havuzla:** `--pool <file>` geçin (veya `THREEROUTER_PROXIES` ayarlayın) ve her istek o listeden bir çıkış üzerinden gider. Bir captcha token'ı bulmacayı çözen çıkışa verilir, bu yüzden tüm hesap (her iki çözüm ve kayıt çağrısı) **tek bir sabitlenmiş çıkışta** çalışır — o çıkış ölürse deneme başarısız olur ve bir sonraki çıkış kullanılır, asla doğrudan geri dönüş yapılmaz.
+- **Havuz olmadan:** CLI `running WITHOUT a proxy (direct)` yazdırır ve doğrudan bağlanır. Kayıt, anahtar üretimi veya doğrulama hakkında hiçbir şey değişmez — yalnızca paketlerin nereden çıktığı değişir.
 - `--screen`, gerçek bir çalıştırmadan önce sahip olduğunuz çıkışları (veya doğrudan rotayı) `https://threerouter.com/api/v1/settings/public` adresine karşı test eder.
 
 ## 📄 Dosyalar
@@ -184,8 +198,10 @@ node src/cli.js --help
 | --- | --- |
 | `keys.txt` | satır başına bir canlı doğrulanmış anahtar — git tarafından yok sayılır |
 | `accounts.json` | hesap başına e-posta / grup / kayıt bakiyesi / çıkış |
-| `captcha-solve.py` | captcha çözücü (python + opencv): slider korelasyonu ve image-click şablon IoU |
+| `captcha-solve.py` | captcha çözücü (python + opencv): kaydırıcı korelasyonu ve resim tıklama şablon IoU |
 | `proxies.txt` | çıkışlarınız — git tarafından yok sayılır |
+| `keys-dead.txt` | sohbet kapısında başarısız olan anahtarlar — `--verify-only` tarafından yazılır — git tarafından yok sayılır |
+| `src/solver.js` | captcha motoru (kaydırıcı + image_click, python yardımcısı, `--auto` girişi) |
 | `out/` | çalıştırma günlükleri — git tarafından yok sayılır |
 
 ## 🔌 9Router'a bağlan
@@ -215,10 +231,10 @@ Varsayılanlar: `--omniroute-prefix threerouter`, `--omniroute-base-url https://
 | | |
 | --- | --- |
 | 🏢 Sağlayıcı | **ThreeRouter** — [threerouter.com](https://threerouter.com) |
-| 🎁 Sağlayıcının verdikleri | kayıtta **10 $ bakiye** (0 $ model sınıfı yok — bonus ücretsiz katmandır) |
+| 🎁 Sağlayıcının verdikleri | kayıtta **10 $ bakiye** (0 $ model sınıfı yok — bonus ücretsiz katmanın kendisidir) |
 | 🔑 Bir anahtar size ne kazandırır | kendi hesabında bir anahtar, `minimax-m3` üzerinde sohbet doğrulamalı |
 | 🌐 API şekli | OpenAI uyumlu: `POST https://api.threerouter.com/v1/chat/completions` |
-| 🔒 Verileriniz | yalnızca `threerouter.com` / `api.threerouter.com` ve posta kutusu arka ucunuzla iletişim kurulur |
+| 🔒 Verileriniz | yalnızca `threerouter.com` / `api.threerouter.com` ve gelen kutusu arka ucunuzla iletişim kurulur |
 
 ## 🐞 Sorunlar
 

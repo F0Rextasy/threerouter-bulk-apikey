@@ -90,6 +90,17 @@ print(c.chat.completions.create(model="minimax-m3",
 
 Reasoning models on this panel often fill `reasoning_content` first: give `max_tokens` at least ~32 or the `content` field comes back empty (the key is still fine).
 
+## ⚡ One command
+
+```bash
+node src/cli.js --count N      # mint N keys — the panel's slider/image captcha is solved in-process
+node src/cli.js --dry          # print the resolved plan: writes nothing, sends nothing
+```
+
+`--auto` is the default and needs nothing installed beyond Node: `src/solver.js` holds the captcha engine (slider correlation + image-click template IoU), and it shells out to the bundled `captcha-solve.py` for the modes it cannot do natively when python + opencv are present — no browser, no CDP, no third-party solving service. Proxies stay optional: a `proxies.txt` next to the CLI is used automatically, otherwise the tool goes direct. `--no-auto` disables the embedded solver; the advanced escape hatches (`--captcha-cmd`, `--solve-file`) are for operators who already own a solver — see `ADVANCED.md`.
+
+> ⚠️ **Terms & account risk.** Automating a provider can violate its Terms of Service and get accounts or IPs banned. You run this on accounts you own, from your own machine, at your own risk; the tool only drives the site's own sign-up page and never bypasses a paid gate. Read the provider's ToS before a large campaign.
+
 ## 🛠 Quick start
 
 ```bash
@@ -105,7 +116,7 @@ A key is written to `keys.txt` **only** after `/v1/chat/completions` answers 200
 
 ### 🖱️ The launcher
 
-The launcher asks for the proxy list and the count, remembers them, and runs the CLI — mint, verify, screen exits, settings, help, Connect to 9Router.
+`npm start` opens the launcher menu, and item **1) Mint keys** asks one question — how many keys — then runs the mint with `--auto`: the captcha is solved in-process and a `proxies.txt` next to the CLI is picked up automatically (otherwise direct). There is no captcha, token or proxy question. The other menu items wrap `--verify-only`, `--screen` and the 9Router / OmniRoute connectors.
 
 ## ✅ Verified working — every key is tested
 
@@ -155,6 +166,9 @@ inbox (one address per account)                                  a fresh address
 
 ```bash
 node src/cli.js --count N         # mint N keys (captcha + chat gate per account)
+node src/cli.js --auto            # solve the captcha with src/solver.js (default, no browser)
+node src/cli.js --no-auto         # disable the embedded solver (--captcha-cmd then required)
+node src/cli.js --dry             # resolve the plan and exit (no write, no request)
 node src/cli.js --group 12        # pin the key group (id or name)
 node src/cli.js --verify-only     # re-verify every key in keys.txt
 node src/cli.js --screen          # exit pool self-test
@@ -185,6 +199,8 @@ node src/cli.js --help
 | `accounts.json` | e-mail / group / signup balance / exit per account |
 | `captcha-solve.py` | the captcha solver (python + opencv): slider correlation and image-click template IoU |
 | `proxies.txt` | your exits — git-ignored |
+| `keys-dead.txt` | keys that failed the chat gate — written by `--verify-only` — git-ignored |
+| `src/solver.js` | the captcha engine (slider + image_click, python helper, `--auto` entry) |
 | `out/` | run logs — git-ignored |
 
 ## 🔌 Connect to 9Router

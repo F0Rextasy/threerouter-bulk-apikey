@@ -41,23 +41,23 @@
 
 ---
 
-## ✨ Pourquoi cela existe
+## ✨ Pourquoi cet outil existe
 
-ThreeRouter exécute **Sub2API v0.2.0** (un panneau Go + Vue, *pas* new-api : `/api/status` et `/api/pricing` répondent `404 page not found`, les vraies portes se trouvent sous `/api/v1`). Chaque nouveau compte arrive avec **10 $ de solde dépensable** — la page d'aide l'appelle *« Bonus par défaut de 2 USD, bonus de 10 USD pour avoir rejoint le groupe »*, et le solde paie réellement les appels (mesuré : `10.00` → `9.99996524` après un chat). L'inscription se fait par e-mail + code de 6 caractères, mais ce n'est **pas** sans captcha : le panneau sert sa propre « vérification humaine » (un curseur puzzle ou un puzzle à cliquer sur image). Les deux modes sont résolus **au sein de cet outil** — pas de navigateur, pas de service de résolution tiers, aucune dépendance — et toute la chaîne a été prouvée en générant **chaque compte a généré sa propre clé** (lots 3 + 5/7 + 2/2 : un e-mail perdu coûte une boîte mail, jamais une clé), chaque clé n'étant conservée qu'après un chat en direct 200 puis revérifiée indépendamment à **10/10**.
+ThreeRouter fait tourner **Sub2API v0.2.0** (un panneau Go + Vue, *pas* new-api : `/api/status` et `/api/pricing` répondent `404 page not found`, les vraies portes se trouvent sous `/api/v1`). Chaque nouveau compte arrive avec **10 $ de solde utilisable** — la page d'aide l'appelle *« Bonus par défaut de 2 USD, bonus de 10 USD pour rejoindre le groupe »*, et le solde paie réellement les appels (mesuré : `10.00` → `9.99996524` après un chat). L'inscription se fait par e-mail + code de 6 caractères, mais elle n'est **pas** sans captcha : le panneau sert sa propre « vérification humaine » (un curseur puzzle ou un puzzle à cliquer sur image). Les deux modes sont résolus **à l'intérieur de cet outil** — pas de navigateur, pas de service de résolution tiers, aucune dépendance — et toute la chaîne a été prouvée en générant **chaque compte a généré sa propre clé** (lots 3 + 5/7 + 2/2 : un e-mail perdu coûte une boîte mail, jamais une clé), chaque clé n'étant conservée qu'après un chat 200 en direct puis revérifiée indépendamment à **10/10**.
 
 ## 🎁 Offre gratuite — ce que vous obtenez
 
 | Quoi | Valeur |
 | --- | --- |
-| Bonus d'inscription | **solde de 10 $** (`GET /api/v1/auth/me` → `balance: 10` ; dépensable — un chat l'a fait passer à `9.99996524`) |
-| Captcha | le widget **propre** au panneau : `mode: slider` (puzzle) ou `mode: image_click` (cliquez sur N formes dans l'ordre des couleurs) — résolu hors ligne par cet outil |
+| Bonus d'inscription | **solde de 10 $** (`GET /api/v1/auth/me` → `balance: 10` ; utilisable — un chat l'a fait passer à `9.99996524`) |
+| Captcha | le widget **propre** du panneau : `mode: slider` (puzzle) ou `mode: image_click` (cliquer sur N formes dans l'ordre des couleurs) — résolu hors ligne par cet outil |
 | Porte e-mail | code **alphanumérique de 6 caractères** (ex. `74AGMV`) + une liste blanche de 198 domaines (`gmail.com`, `hotmail.com`, `outlook.com`, `live.com`, `icloud.com`, `proton.me` …) |
 | Autres portes | **pas** de téléphone, **pas** d'OAuth (GitHub/Google/WeChat/LinuxDo/OIDC tous à `false`), **pas** de code d'invitation |
-| Catalogue | 5 identifiants de modèles sur la ligne de clé vérifiée (`minimax-m3`, `deepseek-v4-pro`, `glm-5.3`, `kimi-k3`, `qwen3.8-max`) |
-| Tarification | basée sur le solde (1 CNY = 1 USD à la recharge, `rate_multiplier` du groupe) ; il n'y a **aucune classe de modèle à 0 $** et aucun point de terminaison `/api/pricing` — le bonus d'inscription *est* l'offre gratuite |
+| Catalogue | 5 identifiants de modèles sur la ligne de clés vérifiée (`minimax-m3`, `deepseek-v4-pro`, `glm-5.3`, `kimi-k3`, `qwen3.8-max`) |
+| Tarification | basée sur le solde (1 CNY = 1 USD à la recharge, `rate_multiplier` du groupe) ; il n'y a **aucune classe de modèle à 0 $** ni d'endpoint `/api/pricing` — le bonus d'inscription *est* l'offre gratuite |
 | L'unité qui évolue | **un compte = une clé** |
 
-> 💡 L'offre gratuite est définie par ThreeRouter et peut changer. Consultez les chiffres en direct sur [threerouter.com](https://threerouter.com) — et laissez la porte propre à l'outil décider :
+> 💡 L'offre gratuite est définie par ThreeRouter et peut changer. Vérifiez les chiffres en direct sur [threerouter.com](https://threerouter.com) — et laissez la porte de l'outil décider :
 
 ```bash
 node src/cli.js --verify-only     # every key in keys.txt is re-tested with a real chat call
@@ -69,7 +69,7 @@ node src/cli.js --verify-only     # every key in keys.txt is re-tested with a re
 
 | ID du modèle | Vérifié |
 | --- | --- |
-| `minimax-m3` | **chaque clé, chat-200** pendant la génération à `providers/threerouter/keys.txt` ; revérification indépendante via le CLI fourni (`--verify-only`) |
+| `minimax-m3` | **chaque clé, chat-200** pendant la génération dans `providers/threerouter/keys.txt` ; revérification indépendante via le CLI fourni (`--verify-only`) |
 | `deepseek-v4-pro` · `glm-5.3` · `kimi-k3` · `qwen3.8-max` | listés par `/v1/models` sur les mêmes clés |
 
 ```bash
@@ -89,7 +89,18 @@ print(c.chat.completions.create(model="minimax-m3",
       messages=[{"role":"user","content":"hi"}], max_tokens=32).choices[0].message.content)
 ```
 
-Les modèles de raisonnement de ce panneau remplissent souvent `reasoning_content` en premier : donnez à `max_tokens` au moins ~32 sinon le champ `content` revient vide (la clé reste valide).
+Les modèles de raisonnement sur ce panneau remplissent souvent `reasoning_content` en premier : donnez à `max_tokens` au moins ~32 sinon le champ `content` revient vide (la clé reste valide).
+
+## ⚡ Une seule commande
+
+```bash
+node src/cli.js --count N      # mint N keys — the panel's slider/image captcha is solved in-process
+node src/cli.js --dry          # print the resolved plan: writes nothing, sends nothing
+```
+
+`--auto` est la valeur par défaut et ne nécessite rien d'installé à part Node : `src/solver.js` contient le moteur de captcha (corrélation de curseur + IoU de gabarit pour le clic sur image), et il appelle le `captcha-solve.py` fourni pour les modes qu'il ne peut pas gérer nativement quand python + opencv sont présents — pas de navigateur, pas de CDP, pas de service de résolution tiers. Les proxys restent optionnels : un `proxies.txt` à côté du CLI est utilisé automatiquement, sinon l'outil passe en direct. `--no-auto` désactive le solveur intégré ; les échappatoires avancées (`--captcha-cmd`, `--solve-file`) sont destinées aux opérateurs qui possèdent déjà un solveur.
+
+> ⚠️ **Conditions et risque de compte.** Automatiser un fournisseur peut violer ses Conditions d'utilisation et entraîner le bannissement de comptes ou d'IP. Vous exécutez ceci sur des comptes que vous possédez, depuis votre propre machine, à vos propres risques ; l'outil ne pilote que la page d'inscription du site lui-même et ne contourne jamais une porte payante. Lisez les Conditions d'utilisation du fournisseur avant une grande campagne.
 
 ## 🛠 Démarrage rapide
 
@@ -102,30 +113,30 @@ node src/cli.js --screen         # exit pool self-test
 node src/cli.js --connect-9router
 ```
 
-Une clé n'est écrite dans `keys.txt` **qu'** après que `/v1/chat/completions` a répondu 200 avec du contenu ; `accounts.json` conserve l'e-mail, le groupe, l'attribution et la sortie utilisée par chaque compte. Captcha : `captcha-solve.py` (fourni à côté du CLI) est utilisé lorsque python + opencv sont installés — c'est le solveur avec lequel les clés de ce dépôt ont été générées (vérifications en direct slider 6/6 et image_click) ; sans python, le solveur JS intégré sans dépendance prend le relais (équivalent slider, image_click au mieux, un nouveau défi par tentative). `--captcha-cmd <cmd>` remplace l'un ou l'autre (JSON du défi sur stdin, JSON de la réponse sur stdout) ; `--solve-file <challenge.json>` résout un défi enregistré hors ligne.
+Une clé n'est écrite dans `keys.txt` **qu'après** que `/v1/chat/completions` ait répondu 200 avec du contenu ; `accounts.json` conserve l'e-mail, le groupe, l'attribution et la sortie utilisée par chaque compte. Captcha : `captcha-solve.py` (fourni à côté du CLI) est utilisé quand python + opencv sont installés — c'est le solveur avec lequel les clés de ce dépôt ont été générées (curseur 6/6 et vérifications en direct du clic sur image) ; sans python, le solveur JS intégré sans dépendance prend le relais (équivalent pour le curseur, meilleur effort pour le clic sur image, un nouveau défi par tentative). `--captcha-cmd <cmd>` remplace l'un ou l'autre (JSON du défi sur stdin, JSON de réponse sur stdout) ; `--solve-file <challenge.json>` résout un défi sauvegardé hors ligne.
 
 ### 🖱️ Le lanceur
 
-Le lanceur demande la liste des proxys et le nombre, les mémorise, et exécute le CLI — génération, vérification, test des sorties, paramètres, aide, Connect to 9Router.
+`npm start` ouvre le menu du lanceur, et l'élément **1) Générer des clés** pose une seule question — combien de clés — puis lance la génération avec `--auto` : le captcha est résolu en cours de processus et un `proxies.txt` à côté du CLI est récupéré automatiquement (sinon en direct). Il n'y a aucune question sur le captcha, le token ou le proxy. Les autres éléments du menu enveloppent `--verify-only`, `--screen` et les connecteurs 9Router / OmniRoute.
 
 ## ✅ Vérifié fonctionnel — chaque clé est testée
 
 | Vérification | Résultat |
 | --- | --- |
 | `GET /api/v1/settings/public` | **200** — `registration_enabled`, `email_verify_enabled`, `registration_click_captcha_enabled: true`, liste blanche de 198 domaines, pas d'OAuth |
-| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 s, usage unique, lié à la sortie de résolution) ; résolutions en direct : slider **6/6** (corrélation r = 0,998–0,9998) et image_click **8/8** avec `captcha-solve.py` ; les mêmes défis enregistrés rejoués hors ligne montrent le slider JS intégré aux mêmes décalages |
-| `POST /api/v1/auth/send-verify-code` | **200** — code délivré (un alias temp.tf réutilisé répond `409 EMAIL_EXISTS` et l'outil fait tourner la boîte mail) |
+| `POST /api/v1/auth/captcha/challenge` + `/verify` | **200** — `captcha_token` (900 s, usage unique, lié à la sortie de résolution) ; résolutions en direct : curseur **6/6** (corrélation r = 0,998–0,9998) et clic sur image **8/8** avec `captcha-solve.py` ; les mêmes défis sauvegardés rejoués hors ligne montrent le curseur JS intégré aux mêmes décalages |
+| `POST /api/v1/auth/send-verify-code` | **200** — code livré (un alias temp.tf réutilisé répond `409 EMAIL_EXISTS` et l'outil fait tourner la boîte mail) |
 | `POST /api/v1/auth/register` | **200** — `access_token` ; le code doit être utilisé dans sa fenêtre de 15 minutes |
 | `GET /api/v1/auth/me` | **200** — `balance: 10` sur chaque compte |
 | `POST /api/v1/keys` | **200** — `sk-…` renvoyé une fois (groupe `12:default` ; `13:vip` également proposé) |
 | flux de génération — une clé par compte, écrite **uniquement** après un chat 200 | 10 comptes via le rail node + 1 compte via le CLI fourni lui-même (45 s de bout en bout, chat-200) |
 | `POST /v1/chat/completions` (`minimax-m3`) | **200** avec du contenu réel pour chaque clé avant d'être conservée, puis revérifiée une par une |
-| revérification indépendante des clés du rail node (série, sortie fraîche) | **toutes réussies** (2026-10-21 ; preuves par clé dans `out/keys-verify.json`) |
-| notes côté panneau | le puzzle image répond occasionnellement `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (un défi périmé ou manqué) — l'outil en demande simplement un nouveau ; un alias temp.tf partagé peut déjà exister sur le panneau (`EMAIL_EXISTS` → nouvelle boîte mail) et des boîtes outlook.com n'ont jamais été vues livrer, donc le CLI utilise par défaut `--mail-providers hotmail` avec trois tentatives |
+| revérification indépendante des clés du rail node (sérielle, sortie fraîche) | **toutes réussies** (2026-10-21 ; preuves par clé dans `out/keys-verify.json`) |
+| notes côté panneau | le puzzle image répond occasionnellement `400 REGISTRATION_CLICK_CAPTCHA_CHALLENGE_INVALID` / `..._INVALID` (un défi périmé ou manqué) — l'outil en demande simplement un nouveau ; un alias temp.tf partagé peut déjà exister sur le panneau (`EMAIL_EXISTS` → nouvelle boîte mail) et des boîtes outlook.com ont été vues ne jamais livrer, donc le CLI utilise par défaut `--mail-providers hotmail` avec trois tentatives |
 
-> **Contrôles qualité.** Chaque clé ici a passé un `chat-200` en direct avant d'être écrite dans `keys.txt`
+> **Portes de qualité.** Chaque clé ici a passé un `chat-200` en direct avant d'être écrite dans `keys.txt`
 > (les clés mortes ne sont jamais livrées). Les combinaisons de routeur suivent la même règle au niveau du modèle : une entrée n'est
-> ajoutée **que si le modèle répond `chat-200` et peut appeler des outils** — un modèle sans prise en charge des outils,
+> ajoutée **que si le modèle répond `chat-200` et peut appeler des outils** — un modèle sans support des outils,
 > une clé morte ou un fournisseur mort est écarté au lieu d'être ajouté. Relancez l'étape de vérification à tout moment ;
 > les échecs sont signalés, jamais cachés.
 
@@ -142,13 +153,13 @@ inbox (one address per account)                                  a fresh address
 
 | Étape | Appel | Notes |
 | --- | --- | --- |
-| portes | `GET /api/v1/settings/public` | indicateurs register / e-mail / captcha, liste blanche d'e-mails |
+| portes | `GET /api/v1/settings/public` | indicateurs d'inscription / e-mail / captcha, liste blanche d'e-mails |
 | captcha | `POST /api/v1/auth/captcha/challenge` → résoudre → `POST /api/v1/auth/captcha/verify` | `captcha_token`, usage unique, **même sortie** que les appels qui le consomment |
 | boîte mail | alias temp.tf (ou Emailnator `@gmail.com`) | uniquement les domaines en liste blanche du panneau |
 | envoyer le code | `POST /api/v1/auth/send-verify-code` | `{email, click_captcha_token}` |
 | code | interroger la boîte mail | alphanumérique de 6 caractères, fenêtre de 15 minutes |
 | inscription | `POST /api/v1/auth/register` | `{email, password, verify_code, click_captcha_token}` → `access_token` |
-| groupes | `GET /api/v1/groups/available` | le bonus y est dépensable |
+| groupes | `GET /api/v1/groups/available` | le bonus y est utilisable |
 | clé | `POST /api/v1/keys` | `{name, group_id}` → `sk-…` |
 | preuve | `POST <relay>/chat/completions` | 200 avec contenu (ou `reasoning_content`) = la clé est active |
 
@@ -156,6 +167,9 @@ inbox (one address per account)                                  a fresh address
 
 ```bash
 node src/cli.js --count N         # mint N keys (captcha + chat gate per account)
+node src/cli.js --auto            # solve the captcha with src/solver.js (default, no browser)
+node src/cli.js --no-auto         # disable the embedded solver (--captcha-cmd then required)
+node src/cli.js --dry             # resolve the plan and exit (no write, no request)
 node src/cli.js --group 12        # pin the key group (id or name)
 node src/cli.js --verify-only     # re-verify every key in keys.txt
 node src/cli.js --screen          # exit pool self-test
@@ -172,10 +186,10 @@ node src/cli.js --help
 
 ## 🛰️ Derrière un proxy
 
-**Facultatif — recommandé à grande échelle (limites par IP, bannissements).** L'outil fonctionne aussi sans proxy.
+**Optionnel — recommandé à grande échelle (limites par IP, bannissements).** L'outil fonctionne aussi sans proxy.
 
-- **Avec un pool :** passez `--pool <file>` (ou définissez `THREEROUTER_PROXIES`) et chaque requête passe par une sortie de cette liste. Un jeton de captcha est émis vers la sortie qui a résolu le puzzle, donc tout le compte (les deux résolutions et l'appel d'inscription) s'exécute sur **une seule sortie épinglée** — si cette sortie meurt, la tentative échoue et la sortie suivante est utilisée, jamais de repli direct.
-- **Sans pool :** le CLI affiche `running WITHOUT a proxy (direct)` et se connecte directement. Rien ne change concernant l'inscription, la génération de clés ou la vérification — seul le point de départ des paquets diffère.
+- **Avec un pool :** passez `--pool <file>` (ou définissez `THREEROUTER_PROXIES`) et chaque requête passe par une sortie de cette liste. Un token de captcha est émis pour la sortie qui a résolu le puzzle, donc tout le compte (les deux résolutions et l'appel d'inscription) tourne sur **une seule sortie épinglée** — si cette sortie meurt, la tentative échoue et la sortie suivante est utilisée, jamais de repli en direct.
+- **Sans pool :** le CLI affiche `running WITHOUT a proxy (direct)` et se connecte directement. Rien ne change concernant l'inscription, la génération de clés ou la vérification — seul le point de départ des paquets change.
 - `--screen` teste les sorties dont vous disposez (ou la route directe) contre `https://threerouter.com/api/v1/settings/public` avant une exécution réelle.
 
 ## 📄 Fichiers
@@ -184,9 +198,11 @@ node src/cli.js --help
 | --- | --- |
 | `keys.txt` | une clé vérifiée en direct par ligne — ignoré par git |
 | `accounts.json` | e-mail / groupe / solde d'inscription / sortie par compte |
-| `captcha-solve.py` | le solveur de captcha (python + opencv) : corrélation du slider et IoU de gabarit pour l'image-click |
+| `captcha-solve.py` | le solveur de captcha (python + opencv) : corrélation de curseur et IoU de gabarit pour le clic sur image |
 | `proxies.txt` | vos sorties — ignoré par git |
-| `out/` | journaux d'exécution — ignoré par git |
+| `keys-dead.txt` | clés ayant échoué à la porte du chat — écrit par `--verify-only` — ignoré par git |
+| `src/solver.js` | le moteur de captcha (curseur + image_click, helper python, entrée `--auto`) |
+| `out/` | journaux d'exécution — ignorés par git |
 
 ## 🔌 Se connecter à 9Router
 
