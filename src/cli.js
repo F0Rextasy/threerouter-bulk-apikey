@@ -52,7 +52,7 @@
  *   --mail <rail>    temptf | emailnator                                [temptf]
  *   --mail-providers temp.tf providers, comma separated   [hotmail,outlook]
  *   --pool <file>    proxy list, one exit per line (env THREEROUTER_PROXIES) [optional]
- *   --tries N        exits tried per account before giving up              [2]
+ *   --exits N        exits tried per account before giving up              [6]
  *   --timeout MS     per-request timeout                                [60000]
  *   --code-timeout S seconds to wait for the e-mail code                   [240]
  *   --auto           solve the captcha with src/solver.js (default, no browser)
@@ -158,8 +158,8 @@ const CONC = Math.min(2, Math.max(1, parseInt(arg('conc', '1'), 10) || 1));
 const GAP_MS = Math.max(0, parseInt(arg('gap', '1500'), 10) || 0);
 // A temp.tf alias can already exist on the panel (EMAIL_EXISTS) and outlook boxes
 // have been seen not to deliver at all, so failing an attempt on mail is normal —
-// the default budget is three mailboxes, not one.
-const TRIES = Math.max(1, parseInt(arg('tries', '3'), 10) || 3);
+// the default budget is six attempts (a fresh mailbox each), not one.
+const EXITS = Math.max(1, parseInt(arg('exits', '6'), 10) || 6);
 const TIMEOUT_MS = Math.max(5000, parseInt(arg('timeout', '60000'), 10) || 60000);
 const CODE_TIMEOUT_MS = Math.max(30, parseInt(arg('code-timeout', '240'), 10) || 240) * 1000;
 const MODEL = arg('model', process.env.THREEROUTER_MODEL || 'minimax-m3');
@@ -224,6 +224,15 @@ function loadExits() {
   console.log(`proxy list ${poolFile}: ${exits.length} exit(s)`);
   return exits;
 }
+/** A dead exit, not a panel verdict — the flow rotates to the next candidate. */
+const isExitError = (e) =>
+  /proxy connect failed|proxy CONNECT refused|proxy timeout|connect timeout|connect failed|ETIMEDOUT|ECONNREFUSED|ECONNRESET|ECONNABORTED|EPIPE|ENETUNREACH|EHOSTUNREACH|EAI_AGAIN|socket hang up|secureConnect|TLS|handshake/i.test(
+    String((e && e.message) || e),
+  );
+
+/** `host:port` of the exit in play, or `direct` when the pool is empty. */
+const exitLabel = (e) => (e ? `${e.host}:${e.port}` : 'direct');
+
 
 async function screen(exits) {
   let ok = 0;
@@ -496,8 +505,10 @@ async function mint() {
   const exits = PROXIES;
   const accounts = loadAccounts();
   const relay = (await relayBaseOf(exits[0]).catch(() => ({ relay: DEFAULT_RELAY }))).relay;
-  log(`threerouter · ${COUNT} key(s) · conc ${CONC} · mail ${MAIL_RAIL} · exits ${exits.filter(Boolean).length || 'direct'} · relay ${relay}`);
+  const routes = exits[0] === null ? 1 : EXITS;
+  log(`threerouter · ${COUNT} key(s) · conc ${CONC} · mail ${MAIL_RAIL} · exits ${exits.filter(Boolean).length || 'direct'} · up to ${routes} per account · relay ${relay}`);
   let made = 0;
+  let transportDead = 0;
   for (let round = 0; round < COUNT; round += CONC) {
     const jobs = [];
     for (let k = 0; k < CONC && round + k < COUNT; k++) {
@@ -505,8 +516,10 @@ async function mint() {
       jobs.push(
         (async () => {
           let lastErr = null;
-          for (let t = 0; t < TRIES; t++) {
-            const exit = exits[(i + t) % exits.length];
+          let lastWasExit = false;
+          for (let a = 0; a < routes; a++) {
+            const exit = exits[(i + a) % exits.length];
+            lastWasExit = false;
             try {
               const rec = await signUp(exit, relay);
               if (!rec.key) {
@@ -548,15 +561,27 @@ async function mint() {
               return;
             } catch (e) {
               lastErr = e;
-              log(`account ${i + 1} attempt ${t + 1}: ${String(e.message).slice(0, 120)}`);
+              lastWasExit = isExitError(e);
+              if (lastWasExit) {
+                const where = exit ? `exit ${a + 1}/${routes} ${exitLabel(exit)}` : `direct attempt ${a + 1}/${routes}`;
+                log(`account ${i + 1}: ${where} dead (${String(e.message).slice(0, 70)})${exit ? ' → next exit' : ''}`);
+              } else {
+                log(`account ${i + 1} attempt ${a + 1}: ${String(e.message).slice(0, 120)}`);
+              }
             }
           }
+          if (lastWasExit) transportDead++;
           log(`account ${i + 1} ✘ ${lastErr ? String(lastErr.message).slice(0, 140) : 'failed'}`);
         })(),
       );
     }
     await Promise.all(jobs);
     if (GAP_MS) await sleep(GAP_MS);
+  }
+  if (!made && transportDead === COUNT) {
+    const route = exits[0] === null ? 'direct mode (no proxy list)' : `${exits.length}-exit pool`;
+    console.error(`[fatal] no usable route — ${COUNT} account(s) × ${routes} candidate(s) over ${route}: every attempt died at the transport layer.`);
+    process.exit(1);
   }
   log(`done — ${made}/${COUNT} key(s) written to ${KEYS_FILE}`);
   process.exit(made ? 0 : 1);
